@@ -462,7 +462,12 @@ class Datatables
         $query_type = get_class($this->query) == 'Illuminate\Database\Query\Builder' ? 'fluent' : 'eloquent';
 		$columns = $query_type == 'eloquent' ? $this->query->getQuery()->columns : $this->query->columns;
 		
-		$this->count_all = $this->query->count();
+		$firstGroupColumn = "*";
+		if (!empty($this->query->getQuery()->groups)) {
+			// When groupping the count should be calculated as a distint of groupped column
+			$firstGroupColumn = $this->query->getQuery()->groups[0];
+		}
+		$this->count_all = $this->query->distinct()->count($firstGroupColumn);
 		
 		//Put columns back.
 		$this->query->select($columns);
