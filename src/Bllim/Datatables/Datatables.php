@@ -209,7 +209,8 @@ class Datatables
 					unset($value[$evalue]);
 				}
 
-				$this->result_array_r[] = array_values($value);
+				//$this->result_array_r[] = array_values($value);
+				$this->result_array_r[] = $value;
 			}
 		}
 	}
