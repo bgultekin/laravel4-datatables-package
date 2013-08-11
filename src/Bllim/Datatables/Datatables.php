@@ -489,7 +489,7 @@ class Datatables
 		
 		$this->count_all = $this->query->count();
 
-		$model = studly_case($this->query->getQuery()->from);
+		$model = str_singular(studly_case($this->query->getQuery()->from));
 		$this->count_total = $model::count();
 		
 		//Put columns back.
