@@ -31,6 +31,7 @@ class Datatables
 	public 		$last_columns 		= array();
 
 	protected	$count_all		= 0;
+	protected	$count_total	= 0;
 
 	protected	$result_object;
 	protected	$result_array		= array();
@@ -487,6 +488,9 @@ class Datatables
 		$columns = $query_type == 'eloquent' ? $this->query->getQuery()->columns : $this->query->columns;
 		
 		$this->count_all = $this->query->count();
+
+		$model = studly_case($this->query->getQuery()->from);
+		$this->count_total = $model::count();
 		
 		//Put columns back.
 		$this->query->select($columns);
@@ -528,7 +532,7 @@ class Datatables
 	{
 		$output = array(
 			"sEcho" => intval(Input::get('sEcho')),
-			"iTotalRecords" => $this->count_all,
+			"iTotalRecords" => $this->count_total,
 			"iTotalDisplayRecords" => $this->count_all,
 			"aaData" => $this->result_array_r
 		);
