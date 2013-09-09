@@ -360,8 +360,8 @@ class Datatables
 
 	private function filtering()
 	{
-		
-		
+
+
 		if (Input::get('sSearch','') != '')
 		{
 			$copy_this = $this;
@@ -369,8 +369,8 @@ class Datatables
 			$this->query->where(function($query) use ($copy_this) {
 
 				$db_prefix = $copy_this->database_prefix();
-				
-				
+
+
 
 				for ($i=0,$c=count($copy_this->columns);$i<$c;$i++)
 				{
@@ -379,17 +379,17 @@ class Datatables
 
 						preg_match('#^(\S*?)\s+as\s+(\S*?)$#si',$copy_this->columns[$i],$matches);
 						$column = empty($matches) ? $copy_this->columns[$i] : $matches[1];
-						
-						if (stripos($column, ' AS ') !== false){ 
+
+						if (stripos($column, ' AS ') !== false){
 							$column = substr($column, stripos($column, ' AS ')+4);
 						}
-						
+
 						$keyword = '%'.Input::get('sSearch').'%';
 
 						if(Config::get('datatables.search.use_wildcards', false)) {
 							$keyword = $copy_this->wildcard_like_string(Input::get('sSearch'));
 						}
-						
+
 						// Check if the database driver is PostgreSQL
 						// If it is, cast the current column to TEXT datatype
 						$cast_begin = null;
@@ -398,7 +398,7 @@ class Datatables
 							$cast_begin = "CAST(";
 							$cast_end = " as TEXT)";
 						}
-						
+
 						$column = $db_prefix . $column;
 						if(Config::get('datatables.search.case_insensitive', false)) {
 							$query->orwhere(DB::raw('LOWER('.$cast_begin.$column.$cast_end.')'), 'LIKE', $keyword);
@@ -410,7 +410,7 @@ class Datatables
 			});
 
 		}
-    
+
 		$db_prefix = $this->database_prefix();
 
 		for ($i=0,$c=count($this->columns);$i<$c;$i++)
@@ -427,7 +427,14 @@ class Datatables
 					$column = $db_prefix . $this->columns[$i];
 					$this->query->where(DB::raw('LOWER('.$column.')'),'LIKE', $keyword);
 				} else {
-					$this->query->where($this->columns[$i], 'LIKE', $keyword);
+					preg_match('#^(\S*?)\s+as\s+(\S*?)$#si',$copy_this->columns[$i],$matches);
+					$column = empty($matches) ? $copy_this->columns[$i] : $matches[1];
+
+					if (stripos($column, ' AS ') !== false){
+						$column = substr($column, stripos($column, ' AS ')+4);
+					}
+
+					$this->query->where($column, 'LIKE', $keyword);
 				}
 			}
 		}
@@ -441,15 +448,15 @@ class Datatables
 	 */
 
 	public function wildcard_like_string($str, $lowercase = true) {
-	    $wild = '%';
-	    $length = strlen($str);
-	    if($length) {
-	        for ($i=0; $i < $length; $i++) {
-	            $wild .= $str[$i].'%';
-	        }
-	    }
-	    if($lowercase) $wild = strtolower($wild);
-	    return $wild;
+		$wild = '%';
+		$length = strlen($str);
+		if($length) {
+			for ($i=0; $i < $length; $i++) {
+				$wild .= $str[$i].'%';
+			}
+		}
+		if($lowercase) $wild = strtolower($wild);
+		return $wild;
 	}
 
 
@@ -460,7 +467,7 @@ class Datatables
 	 */
 
 	public function database_prefix() {
-	    return Config::get('database.connections.'.Config::get('database.default').'.prefix', '');
+		return Config::get('database.connections.'.Config::get('database.default').'.prefix', '');
 	}
 
 
@@ -473,11 +480,11 @@ class Datatables
 	private function count()
 	{
 		//Get columns to temp var.
-        $query_type = get_class($this->query) == 'Illuminate\Database\Query\Builder' ? 'fluent' : 'eloquent';
+		$query_type = get_class($this->query) == 'Illuminate\Database\Query\Builder' ? 'fluent' : 'eloquent';
 		$columns = $query_type == 'eloquent' ? $this->query->getQuery()->columns : $this->query->columns;
-		
+
 		$this->count_all = $this->query->count();
-		
+
 		//Put columns back.
 		$this->query->select($columns);
 	}
