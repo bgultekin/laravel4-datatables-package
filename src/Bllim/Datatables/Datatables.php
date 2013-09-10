@@ -427,8 +427,8 @@ class Datatables
 					$column = $db_prefix . $this->columns[$i];
 					$this->query->where(DB::raw('LOWER('.$column.')'),'LIKE', $keyword);
 				} else {
-					preg_match('#^(\S*?)\s+as\s+(\S*?)$#si',$copy_this->columns[$i],$matches);
-					$column = empty($matches) ? $copy_this->columns[$i] : $matches[1];
+					preg_match('#^(\S*?)\s+as\s+(\S*?)$#si',$this->columns[$i],$matches);
+					$column = empty($matches) ? $this->columns[$i] : $matches[1];
 
 					if (stripos($column, ' AS ') !== false){
 						$column = substr($column, stripos($column, ' AS ')+4);
