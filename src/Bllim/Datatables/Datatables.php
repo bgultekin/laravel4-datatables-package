@@ -100,7 +100,7 @@ class Datatables
 	private function init()
 	{
 		$this->filtering();
-		// $this->count();
+		$this->count();
 		$this->paging();
 		$this->ordering();
 	}
@@ -536,8 +536,6 @@ class Datatables
 	private function output()
 	{
 		$sColumns = array_merge_recursive($this->columns,$this->sColumns);
-
-		$this->count_all = count($this->result_array_r);
 
 		$output = array(
 			"sEcho" => intval(Input::get('sEcho')),
