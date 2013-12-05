@@ -496,9 +496,8 @@ class Datatables
 
 	private function count()
 	{
-		//Count the number of rows in the select
-        $this->count_all = DB::table(DB::raw('('.$this->query->toSql().') AS count_row_table'))->count();
-        // \Debug::d($this->query->toSql());
+	    //Count the number of rows in the select
+            $this->count_all = DB::table(DB::raw('('.$this->query->toSql().') AS count_row_table'))->count();
 	}
 
 
