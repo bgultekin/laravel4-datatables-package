@@ -100,7 +100,7 @@ class Datatables
 	private function init()
 	{
 		$this->filtering();
-		$this->count();
+		// $this->count();
 		$this->paging();
 		$this->ordering();
 	}
@@ -356,29 +356,20 @@ class Datatables
 		}
 	}
 
+	/**
+	 *	Datatable cleanColumns
+	 *  @author Todd Mc Brearty
+	 *  @link https://github.com/toddmcbrearty
+	 *  @param $array 
+	 *	@return array
+	 */
+
 	private function cleanColumns( $cols )
 	{
-		$_search = [
-			'GROUP_CONCAT( ',
-			'CONCAT( ',
-			'DISTINCT( ',
-			',',
-			' )',
-			'as',
-		];
 
 		foreach ( $cols as $col )
 		{
-			$_column = explode( ' ' , str_replace( $_search, '', $col, $count ) );
-
-			if ( $count > 0 )
-			{
-				$columns[] = array_shift( $_column );
-			}
-			else
-			{
-				$columns[] = end( $_column );
-			}
+			$columns[] = preg_replace( '/[A-Z_]*\(.*\) as\s|.*\sas\s/', '', $col );
 		}
 
 		return $columns;
@@ -506,7 +497,8 @@ class Datatables
 	private function count()
 	{
 		//Count the number of rows in the select
-        	$this->count_all = DB::table(DB::raw('('.$this->query->toSql().') AS count_row_table'))->count();
+        $this->count_all = DB::table(DB::raw('('.$this->query->toSql().') AS count_row_table'))->count();
+        // \Debug::d($this->query->toSql());
 	}
 
 
@@ -545,12 +537,14 @@ class Datatables
 	{
 		$sColumns = array_merge_recursive($this->columns,$this->sColumns);
 
+		$this->count_all = count($this->result_array_r);
+
 		$output = array(
 			"sEcho" => intval(Input::get('sEcho')),
 			"iTotalRecords" => $this->count_all,
 			"iTotalDisplayRecords" => $this->count_all,
 			"aaData" => $this->result_array_r,
-			"sColumns" => $sColumns
+			"sColumns" => $this->cleanColumns( $sColumns ),
 		);
 
 		if(Config::get('application.profiler', false)) {
