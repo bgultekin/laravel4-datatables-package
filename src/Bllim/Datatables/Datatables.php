@@ -417,13 +417,13 @@ class Datatables
                         }
                         
                         //Set the default filter
-						$filter = 'orwhere';
-						//Check if this column has a filter method, if not, use default
-						if (array_key_exists($this->getColumnName($this->columns[$i]), $this->filter_columns)) {
-							$filter = $this->filter_columns[$this->getColumnName($this->columns[$i])];
-						} 	
+			$filter = 'orwhere';
+			//Check if this column has a filter method, if not, use default
+			if (array_key_exists($this->getColumnName($this->columns[$i]), $this->filter_columns)) {
+				$filter = $this->filter_columns[$this->getColumnName($this->columns[$i])];
+			} 	
 						
-						$column = $db_prefix . $column;
+			$column = $db_prefix . $column;
                         if(Config::get('datatables.search.case_insensitive', false)) {
                             $query->{$filter}(DB::raw('LOWER('.$cast_begin.$column.$cast_end.')'), 'LIKE', strtolower($keyword));
                         } else {
@@ -448,19 +448,19 @@ class Datatables
                 }
 
                 //Set the default filter
-				$filter = 'where';
-				//Check if this column has a filter method, if not, use default
-				if (array_key_exists($this->getColumnName($this->columns[$i]), $this->filter_columns)) {
-					$filter = $this->filter_columns[$this->getColumnName($this->columns[$i])];
-				} 			
+		$filter = 'where';
+		//Check if this column has a filter method, if not, use default
+		if (array_key_exists($this->getColumnName($this->columns[$i]), $this->filter_columns)) {
+			$filter = $this->filter_columns[$this->getColumnName($this->columns[$i])];
+		} 			
 				
-				if(Config::get('datatables.search.case_insensitive', false)) {
-					$column = $db_prefix . $columns[$i];
-					$this->query->{$filter}(DB::raw('LOWER('.$column.')'),'LIKE', strtolower($keyword));
-				} else {
-					$col = strstr($columns[$i],'(')?DB::raw($columns[$i]):$columns[$i];
-					$this->query->{$filter}($col, 'LIKE', $keyword);
-				}
+		if(Config::get('datatables.search.case_insensitive', false)) {
+			$column = $db_prefix . $columns[$i];
+			$this->query->{$filter}(DB::raw('LOWER('.$column.')'),'LIKE', strtolower($keyword));
+		} else {
+			$col = strstr($columns[$i],'(')?DB::raw($columns[$i]):$columns[$i];
+			$this->query->{$filter}($col, 'LIKE', $keyword);
+		}
             }
         }
     }
