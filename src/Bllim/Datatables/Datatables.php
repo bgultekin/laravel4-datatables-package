@@ -26,6 +26,7 @@ class Datatables
     protected $extra_columns = array();
     protected $excess_columns = array();
     protected $edit_columns = array();
+    protected $edit_columns = array();
     protected $sColumns = array();
 
     public $columns = array();
@@ -139,6 +140,17 @@ class Datatables
     {
         $names = func_get_args();
         $this->excess_columns = array_merge($this->excess_columns,$names);
+        return $this;
+    }
+    
+    /**
+     * Edit the filtering condition of a column
+     *
+     * @return $this
+     */
+    public function filter_column($name, $filter)
+    {
+        $this->filter_columns[$name] = $filter;
         return $this;
     }
 
@@ -403,12 +415,19 @@ class Datatables
                             $cast_begin = "CAST(";
                             $cast_end = " as TEXT)";
                         }
-
-                        $column = $db_prefix . $column;
+                        
+                        //Set the default filter
+						$filter = 'orwhere';
+						//Check if this column has a filter method, if not, use default
+						if (array_key_exists($this->getColumnName($this->columns[$i]), $this->filter_columns)) {
+							$filter = $this->filter_columns[$this->getColumnName($this->columns[$i])];
+						} 	
+						
+						$column = $db_prefix . $column;
                         if(Config::get('datatables.search.case_insensitive', false)) {
-                            $query->orwhere(DB::raw('LOWER('.$cast_begin.$column.$cast_end.')'), 'LIKE', strtolower($keyword));
+                            $query->{$filter}(DB::raw('LOWER('.$cast_begin.$column.$cast_end.')'), 'LIKE', strtolower($keyword));
                         } else {
-                            $query->orwhere(DB::raw($cast_begin.$column.$cast_end), 'LIKE', $keyword);
+                            $query->{$filter}(DB::raw($cast_begin.$column.$cast_end), 'LIKE', $keyword);
                         }
                     }
                 }
@@ -428,13 +447,20 @@ class Datatables
                     $keyword = $copy_this->wildcard_like_string(Input::get('sSearch_'.$i));
                 }
 
-                if(Config::get('datatables.search.case_insensitive', false)) {
-                    $column = $db_prefix . $columns[$i];
-                    $this->query->where(DB::raw('LOWER('.$column.')'),'LIKE', strtolower($keyword));
-                } else {
-                    $col = strstr($columns[$i],'(')?DB::raw($columns[$i]):$columns[$i];
-                    $this->query->where($col, 'LIKE', $keyword);
-                }
+                //Set the default filter
+				$filter = 'where';
+				//Check if this column has a filter method, if not, use default
+				if (array_key_exists($this->getColumnName($this->columns[$i]), $this->filter_columns)) {
+					$filter = $this->filter_columns[$this->getColumnName($this->columns[$i])];
+				} 			
+				
+				if(Config::get('datatables.search.case_insensitive', false)) {
+					$column = $db_prefix . $columns[$i];
+					$this->query->{$filter}(DB::raw('LOWER('.$column.')'),'LIKE', strtolower($keyword));
+				} else {
+					$col = strstr($columns[$i],'(')?DB::raw($columns[$i]):$columns[$i];
+					$this->query->{$filter}($col, 'LIKE', $keyword);
+				}
             }
         }
     }
@@ -488,7 +514,10 @@ class Datatables
     private function getColumnName($str)
     {
 
-        preg_match('#^(\S*?)\s+as\s+(\S*?)$#si',$str,$matches);
+        //Replaced the previous expression because it fails if there's a blankspace in the column name. 
+		//ie: group_concat(field SEPERATOR ',')
+        //preg_match('#^(\S*?)\s+as\s+(\S*?)$#si',$str,$matches);
+		preg_match('#^(.*?)\s+as\s+(.*?)$#si',$str,$matches);
 
         if(!empty($matches))
         {
