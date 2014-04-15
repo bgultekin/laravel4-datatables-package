@@ -391,7 +391,7 @@ class Datatables
 
                         $keyword = '%'.Input::get('sSearch').'%';
 
-                        if(Config::get('datatables.search.use_wildcards', false)) {
+                        if(Config::get('datatables::datatables.search.use_wildcards', false)) {
                             $keyword = $copy_this->wildcard_like_string(Input::get('sSearch'));
                         }
 
@@ -405,7 +405,7 @@ class Datatables
                         }
 
                         $column = $db_prefix . $column;
-                        if(Config::get('datatables.search.case_insensitive', false)) {
+                        if(Config::get('datatables::datatables.search.case_insensitive', false)) {
                             $query->orwhere(DB::raw('LOWER('.$cast_begin.$column.$cast_end.')'), 'LIKE', strtolower($keyword));
                         } else {
                             $query->orwhere(DB::raw($cast_begin.$column.$cast_end), 'LIKE', $keyword);
@@ -424,11 +424,11 @@ class Datatables
             {
                 $keyword = '%'.Input::get('sSearch_'.$i).'%';
 
-                if(Config::get('datatables.search.use_wildcards', false)) {
+                if(Config::get('datatables::datatables.search.use_wildcards', false)) {
                     $keyword = $copy_this->wildcard_like_string(Input::get('sSearch_'.$i));
                 }
 
-                if(Config::get('datatables.search.case_insensitive', false)) {
+                if(Config::get('datatables::datatables.search.case_insensitive', false)) {
                     $column = $db_prefix . $columns[$i];
                     $this->query->where(DB::raw('LOWER('.$column.')'),'LIKE', strtolower($keyword));
                 } else {
@@ -471,7 +471,7 @@ class Datatables
      * @param string $count variable to store to 'count_all' for iTotalRecords, 'display_all' for iTotalDisplayRecords
      * @return null
      */
-	private function count($count = 'count_all')
+    private function count($count = 'count_all')
     {
         //Get columns to temp var.   
         
