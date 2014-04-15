@@ -162,13 +162,15 @@ class Datatables
     }
     
     /**
-     * Alias to the "remove_column" method.
+     * Adds excess columns to "excess_columns".
      *
      * @return $this
      */
     public function removeColumn()
     {
-    	return $this->remove_column();
+        $names = func_get_args();
+        $this->excess_columns = array_merge($this->excess_columns,$names);
+        return $this;
     }
 
     /**
