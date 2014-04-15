@@ -117,6 +117,16 @@ class Datatables
         $this->extra_columns[] = array('name' => $name, 'content' => $content, 'order' => $order);
         return $this;
     }
+    
+    /**
+     * Alias to the "add_column" method.
+     *
+     * @return $this
+     */
+    public function addColumn($name, $content, $order = false)
+    {
+    	return $this->add_column($name, $content, $order);
+    }
 
     /**
      * Adds column names to edit_columns
@@ -128,7 +138,16 @@ class Datatables
         $this->edit_columns[] = array('name' => $name, 'content' => $content);
         return $this;
     }
-
+    
+    /**
+     * Alias to the "edit_column" method.
+     *
+     * @return $this
+     */
+    public function editColumn($name, $content)
+    {
+    	return $this->edit_column($name, $content);
+    }
 
     /**
      * Adds excess columns to excess_columns
@@ -140,6 +159,16 @@ class Datatables
         $names = func_get_args();
         $this->excess_columns = array_merge($this->excess_columns,$names);
         return $this;
+    }
+    
+    /**
+     * Alias to the "remove_column" method.
+     *
+     * @return $this
+     */
+    public function removeColumn()
+    {
+    	return $this->remove_column();
     }
 
     /**
