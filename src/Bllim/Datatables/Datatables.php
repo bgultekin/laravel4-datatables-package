@@ -400,8 +400,8 @@ class Datatables
                         $cast_begin = null;
                         $cast_end = null;
                         if( DB::getDriverName() === 'pgsql') {
-                            $cast_begin = "CAST(";
-                            $cast_end = " as TEXT)";
+                            $cast_begin = "CAST('";
+                            $cast_end = "' as TEXT)";
                         }
 
                         $column = $db_prefix . $column;
