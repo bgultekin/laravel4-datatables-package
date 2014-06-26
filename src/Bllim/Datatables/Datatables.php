@@ -144,17 +144,6 @@ class Datatables
         return $this;
     }
 
-	/**
-	 * Sets the DataTables index column (as used to set, e.g., id of the <tr> tags) to the named column
-	 *
-	 * @param $name
-	 * @return $this
-	 */
-	public function set_index_column($name) {
-		$this->index_column = $name;
-		return $this;
-	}
-
     /**
      * Saves given query and determines its type
      *
@@ -216,14 +205,7 @@ class Datatables
                     unset($value[$evalue]);
                 }
 
-	            $row = array_values($value);
-	            if ($this->index_column) {
-		            if (!array_key_exists($this->index_column, $value)) {
-			            throw new \Exception('Index column set to non-existent column "' . $this->index_column . '"');
-		            }
-		            $row['DT_RowId'] = $value[$this->index_column];
-	            }
-                $this->result_array_r[] = $row;
+                $this->result_array_r[] = array_values($value);
             }
         }
     }
@@ -331,9 +313,9 @@ class Datatables
      */
     private function paging()
     {
-        if(!is_null(Input::get('iDisplayStart')) && Input::get('iDisplayLength') != -1)
+        if(!is_null(Input::get('start')) && Input::get('length') != -1)
         {
-            $this->query->skip(Input::get('iDisplayStart'))->take(Input::get('iDisplayLength',10));
+            $this->query->skip(Input::get('start'))->take(Input::get('length',10));
         }
     }
 
@@ -345,21 +327,21 @@ class Datatables
     private function ordering()
     {
 
+        if (Input::has('order')) {
 
-        if(!is_null(Input::get('iSortCol_0')))
-        {
             $columns = $this->clean_columns( $this->last_columns );
 
-            for ( $i=0, $c=intval(Input::get('iSortingCols')); $i<$c ; $i++ )
+            for ( $i=0, $c=count(Input::get('order')); $i<$c ; $i++ )
             {
-                if ( Input::get('bSortable_'.intval(Input::get('iSortCol_'.$i))) == "true" )
+                if (  Input::get('columns')[Input::get('order')[$i]['column']]['orderable'] == "true" )
                 {
-                    if(isset($columns[intval(Input::get('iSortCol_'.$i))]))
-                        $this->query->orderBy($columns[intval(Input::get('iSortCol_'.$i))],Input::get('sSortDir_'.$i));
+                    if(isset($columns[intval(Input::get('order')[$i]['column'])]))
+                        $this->query->orderBy($columns[intval(Input::get('order')[$i]['column'])],Input::get('order')[$i]['dir']);
                 }
             }
 
         }
+
     }
 
     /**
@@ -388,7 +370,7 @@ class Datatables
     {
         $columns = $this->clean_columns( $this->columns, false );
 
-        if (Input::get('sSearch','') != '')
+        if (Input::get('search','') != '')
         {
             $copy_this = $this;
             $copy_this->columns = $columns;
@@ -401,7 +383,7 @@ class Datatables
 
                 for ($i=0,$c=count($copy_this->columns);$i<$c;$i++)
                 {
-                    if (Input::get('bSearchable_'.$i) == "true")
+                    if (Input::get('columns')[$i]['searchable'] == "true")
                     {
                         $column = $copy_this->columns[$i];
 
@@ -409,10 +391,10 @@ class Datatables
                             $column = substr($column, stripos($column, ' AS ')+4);
                         }
 
-                        $keyword = '%'.Input::get('sSearch').'%';
+                        $keyword = '%'.Input::get('search','')['value'].'%';
 
                         if(Config::get('datatables.search.use_wildcards', false)) {
-                            $keyword = $copy_this->wildcard_like_string(Input::get('sSearch'));
+                            $keyword = $copy_this->wildcard_like_string(Input::get('search','')['value']);
                         }
 
                         // Check if the database driver is PostgreSQL
@@ -550,10 +532,10 @@ class Datatables
         $sColumns = array_merge_recursive($this->columns,$this->sColumns);
 
         $output = array(
-                "sEcho" => intval(Input::get('sEcho')),
-                "iTotalRecords" => $this->count_all,
-                "iTotalDisplayRecords" => $this->display_all,
-                "aaData" => $this->result_array_r,
+                "draw" => intval(Input::get('draw')),
+                "recordsTotal" => $this->count_all,
+                "recordsFiltered" => $this->display_all,
+                "data" => $this->result_array_r,
                 "sColumns" => $sColumns
         );
 
