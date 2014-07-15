@@ -331,6 +331,11 @@ class Datatables
      */
     protected function paging()
     {
+        if(!is_null(Input::get('start')) && Input::get('length') != -1)
+        {
+            $this->query->skip(Input::get('start'))->take(Input::get('length',10));
+        }
+        // for Datatable < 1.10
         if(!is_null(Input::get('iDisplayStart')) && Input::get('iDisplayLength') != -1)
         {
             $this->query->skip(Input::get('iDisplayStart'))->take(Input::get('iDisplayLength',10));
@@ -345,8 +350,22 @@ class Datatables
     protected function ordering()
     {
 
+        if (Input::has('order')) {
 
-        if(!is_null(Input::get('iSortCol_0')))
+            $columns = $this->clean_columns( $this->last_columns );
+
+            for ( $i=0, $c=count(Input::get('order')); $i<$c ; $i++ )
+            {
+                if (  Input::get('columns')[Input::get('order')[$i]['column']]['orderable'] == "true" )
+                {
+                    if(isset($columns[intval(Input::get('order')[$i]['column'])]))
+                        $this->query->orderBy($columns[intval(Input::get('order')[$i]['column'])],Input::get('order')[$i]['dir']);
+                }
+            }
+
+        }
+        // for Datatable < 1.10
+        elseif(!is_null(Input::get('iSortCol_0')))
         {
             $columns = $this->clean_columns( $this->last_columns );
 
@@ -360,6 +379,7 @@ class Datatables
             }
 
         }
+
     }
 
     /**
@@ -388,7 +408,55 @@ class Datatables
     {
         $columns = $this->clean_columns( $this->columns, false );
 
-        if (Input::get('sSearch','') != '')
+        if (Input::get('search','') != '')
+        {
+            $copy_this = $this;
+            $copy_this->columns = $columns;
+
+            $this->query->where(function($query) use ($copy_this) {
+
+                $db_prefix = $copy_this->database_prefix();
+
+
+
+                for ($i=0,$c=count($copy_this->columns);$i<$c;$i++)
+                {
+                    if (Input::get('columns')[$i]['searchable'] == "true")
+                    {
+                        $column = $copy_this->columns[$i];
+
+                        if (stripos($column, ' AS ') !== false){
+                            $column = substr($column, stripos($column, ' AS ')+4);
+                        }
+
+                        $keyword = '%'.Input::get('search','')['value'].'%';
+
+                        if(Config::get('datatables.search.use_wildcards', false)) {
+                            $keyword = $copy_this->wildcard_like_string(Input::get('search','')['value']);
+                        }
+
+                        // Check if the database driver is PostgreSQL
+                        // If it is, cast the current column to TEXT datatype
+                        $cast_begin = null;
+                        $cast_end = null;
+                        if( DB::getDriverName() === 'pgsql') {
+                            $cast_begin = "CAST(";
+                            $cast_end = " as TEXT)";
+                        }
+
+                        $column = $db_prefix . $column;
+                        if(Config::get('datatables.search.case_insensitive', false)) {
+                            $query->orwhere(DB::raw('LOWER('.$cast_begin.$column.$cast_end.')'), 'LIKE', strtolower($keyword));
+                        } else {
+                            $query->orwhere(DB::raw($cast_begin.$column.$cast_end), 'LIKE', $keyword);
+                        }
+                    }
+                }
+            });
+
+        }
+        // for Datatable < 1.10
+        elseif (Input::get('sSearch','') != '')
         {
             $copy_this = $this;
             $copy_this->columns = $columns;
@@ -559,13 +627,25 @@ class Datatables
     {
         $sColumns = array_merge_recursive($this->columns,$this->sColumns);
 
-        $output = array(
+	if (Input::get('draw','') != '') {
+		$output = array(
+                "draw" => intval(Input::get('draw')),
+                "recordsTotal" => $this->count_all,
+                "recordsFiltered" => $this->display_all,
+                "data" => $this->result_array_r,
+                "sColumns" => $sColumns
+        	);
+	}
+	// for Datatable < 1.10
+	else {
+		$output = array(
                 "sEcho" => intval(Input::get('sEcho')),
                 "iTotalRecords" => $this->count_all,
                 "iTotalDisplayRecords" => $this->display_all,
                 "aaData" => $this->result_array_r,
                 "sColumns" => $sColumns
-        );
+        	);
+	}
 
         if(Config::get('app.debug', false)) {
             $output['aQueries'] = DB::getQueryLog();
