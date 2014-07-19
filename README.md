@@ -2,7 +2,7 @@
 
 **About**
 
-This bundle is created to handle server-side works of DataTables Jquery Plugin (http://datatables.net) by using Eloquent ORM or Fluent Query Builder.
+This bundle is created to handle the server-side processing of the DataTables Jquery Plugin (http://datatables.net) by using Eloquent ORM or Fluent Query Builder.
 
 ### Feature Overview
 - Supporting Eloquent ORM and Fluent Query Builder
@@ -23,7 +23,7 @@ Add the `bllim/datatables` under the `require` key after that run the `composer 
         ...
     }
 
-Composer will download the package. After package downloaded, open "app/config/app.php" and edit like below:
+Composer will download the package. After the package is downloaded, open "app/config/app.php" and add the service provider and alias as below:
 
     'providers' => array(
         ...
@@ -48,15 +48,17 @@ $ php artisan config:publish bllim/datatables
 It is very simple to use this bundle. Just create your own fluent query object or eloquent object without getting results (that means don't use get(), all() or similar methods) and give it to Datatables.
 You are free to use all Eloquent ORM and Fluent Query Builder features.
 
-It is better, you know these:
-- When you use select method on Eloquent or Fluent Query, you choose columns
-- You can easily edit columns by using edit_column($column,$content)
-- You can remove any column by using remove_column($column) method
-- You can add columns by using add_column($column_name, $content, $order)
-- You can use Blade Template Engine in your $content values
-- The name of columns is set by returned array.
-    - That means, for 'posts.id' it is 'id' and also for 'owner.name as ownername' it is 'ownername'
-- You can set the "index" column (http://datatables.net/reference/api/row%28%29.index%28%29) using set_index_column($name)
+Some things you should know:
+- When you call the select method on Eloquent or Fluent Query, you choose columns
+- Modifying columns
+    - You can easily edit columns by using `edit_column($column,$content)`
+    - You can remove any column by the returned data by using `remove_column($column)`
+    - You can add columns by using `add_column($column_name, $content, $order)`
+    - You can use Blade Template Engine in your `$content` values
+- The column identifiers are set by the returned array.
+    - That means, for `posts.id` the relevant identifier is `id`, and for `owner.name as ownername` it is `ownername`
+- You can set the "index" column (http://datatables.net/reference/api/row().index()) using set_index_column($name)
+- You can opt for the response to include the data attribute for datatables 1.10+ by calling make(true) instead of make() (see Example 3)
 
 
 ### Examples
@@ -83,12 +85,25 @@ It is better, you know these:
                             @else
                                 Passive
                             @endif')
-    // you can also give a function as parameter to edit_column and add_column instead of blade string
-    ->edit_column('ownername','Author of this post is {{ $ownername }}')
+    ->edit_column('ownername', function($row) {
+        // You can also pass a function for the $content argument
+        // of the add_column or edit_column methods.
+        // The query row/model record is passed as an argument to the function
+        return "The author of this post is {$row->ownername}."
+    })
     ->remove_column('id')
     ->make();
 
-**Notice:** If you use double quotes while giving content of add_column or edit_column, you should escape variables with backslash (\) else you get error. For example:
+**Example 3:**
+
+    $comments = Comment::select('comments.id', 'comments.user_id', 'comments.content');
+    
+    // Return the array of objects format supported by datatables 1.10+
+    // Reference: https://datatables.net/manual/server-side
+    return Datatables::of($comments)
+        ->make(true);
+
+**Notice:** If you use double quotes in the $content of `add_column` or `edit_column`, you should escape variables with a backslash (\\) to prevent an error. For example:
 
     edit_column('id',"- {{ \$id }}") .
 
