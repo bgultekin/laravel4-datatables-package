@@ -513,7 +513,12 @@ class Datatables
                                 $cast_end = " as TEXT)";
                             }
                         
-                            $column = $db_prefix . $columns_clean[$i];
+                            // add backticks to columns, needed in order to work around (mysql) reserved words
+                            $column = explode('.',$db_prefix . $columns_clean[$i]);
+                            foreach ($column as $key => $value)
+                                $column[$key] = "`".$value."`";
+                            $column = implode('.',$column);
+                            
                             if(Config::get('datatables.search.case_insensitive', false)) {
                                 $query->orwhere(DB::raw('LOWER('.$cast_begin.$column.$cast_end.')'), 'LIKE', strtolower($keyword));
                             } else {
