@@ -75,6 +75,7 @@ class Datatables
             for($i=0;$i<Input::get('iColumns',0);$i++) {
                 $arr = array();
                 $arr['name'] = isset($columns[$i]) ? $columns[$i] : '';
+                $arr['data'] = Input::get('mDataProp_'.$i,'');
                 $arr['searchable'] = Input::get('bSearchable_'.$i,'');
                 $arr['search'] = array();
                 $arr['search']['value'] = Input::get('sSearch_'.$i,'');
@@ -253,7 +254,7 @@ class Datatables
     {
         $this->query = $query;
         $this->query_type = $query instanceof \Illuminate\Database\Query\Builder ? 'fluent' : 'eloquent';
-        $this->columns = $this->query_type == 'eloquent' ? $this->query->getQuery()->columns : $this->query->columns;
+        $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns?:[]) : ($this->query->columns?:[]);
     }
 
     /**
