@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Arr;
 use Illuminate\View\Compilers\BladeCompiler;
 use Illuminate\Filesystem\Filesystem;
 
@@ -101,9 +102,10 @@ class Datatables
      *
      * @return Datatables
      */
-    public static function of($query)
+    public static function of($query, $mDataSupport=false)
     {
         $ins = new static;
+        $ins->mDataSupport = $mDataSupport;
         $ins->save_query($query);
         return $ins;
     }
@@ -115,7 +117,7 @@ class Datatables
      */
     public function make($mDataSupport=false,$raw=false)
     {
-        $this->mDataSupport = $mDataSupport;
+        if (!isset($this->mDataSupport)) { $this->mDataSupport = $mDataSupport; }
         $this->create_last_columns();
         $this->init();
         $this->get_result();
@@ -144,8 +146,24 @@ class Datatables
                 return (array) $object;
             }, $this->result_object);
         }
-    }
 
+        if ($this->mDataSupport) {
+            $walk = function($value, $key, $prefix = null) use (&$walk, &$result_array) {
+                $key = (!is_null($prefix)) ? ($prefix.".".$key) : $key;
+                if (is_array($value)) {
+                    array_walk($value, $walk, $key);
+                } else {
+                    $result_array = Arr::add($result_array, $key, $value);
+                }
+            };
+
+            $result_array = [];
+            \array_walk($this->result_array, $walk);
+            $this->result_array = $result_array;
+
+        }
+
+    }
     /**
      * Prepares variables according to Datatables parameters
      *
@@ -254,7 +272,13 @@ class Datatables
     {
         $this->query = $query;
         $this->query_type = $query instanceof \Illuminate\Database\Query\Builder ? 'fluent' : 'eloquent';
-        $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns?:[]) : ($this->query->columns?:[]);
+        if ($this->mDataSupport) {
+            $this->columns = array_map(function($column) {
+                return $column['data'];
+            }, $this->input['columns']);
+        } else {
+            $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns ?: []) : ($this->query->columns ?: []);
+        }
     }
 
     /**
@@ -274,7 +298,11 @@ class Datatables
                     $value['content'] = $value['content']($this->result_object[$rkey]);
                 endif;
 
-                $rvalue = $this->include_in_array($value,$rvalue);
+                if ($this->mDataSupport) {
+                    Arr::set($rvalue, $value['name'], $value['content']);
+                } else {
+                    $rvalue = $this->include_in_array($value, $rvalue);
+                }
             }
 
             foreach ($this->edit_columns as $key => $value) {
@@ -285,7 +313,11 @@ class Datatables
                     $value['content'] = $value['content']($this->result_object[$rkey]);
                 endif;
 
-                $rvalue[$value['name']] = $value['content'];
+                if ($this->mDataSupport) {
+                    Arr::set($rvalue, $value['name'], $value['content']);
+                } else {
+                    $rvalue[$value['name']] = $value['content'];
+                }
 
             }
         }
@@ -563,7 +595,7 @@ class Datatables
                 
                 $db_prefix = $_this->database_prefix();
  
-               for ($i=0,$c=count($_this->input['columns']);$i<$c;$i++)
+                for ($i=0,$c=count($_this->input['columns']);$i<$c;$i++)
                 {
                     if (isset($columns_copy[$i]) && $_this->input['columns'][$i]['searchable'] == "true")
                     {
