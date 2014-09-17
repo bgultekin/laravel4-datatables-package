@@ -669,18 +669,14 @@ class Datatables
      *
      * @return string
      */
-    public function wildcard_like_string($str, $lowercase = true) {
-        $wild = '%';
-        $length = strlen($str);
-        if($length) {
-            for ($i=0; $i < $length; $i++) {
-                $wild .= $str[$i].'%';
-            }
+    public function wildcard_like_string($str, $lowercase = true)
+    {
+        if ($lowercase) {
+            $str = lowercase($str);
         }
-        if($lowercase) $wild = strtolower($wild);
-        return $wild;
+    
+        return preg_replace('\s+', '%', $str);
     }
-
 
     /**
      * Returns current database prefix
