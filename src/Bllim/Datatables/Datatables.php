@@ -7,7 +7,7 @@
  *
  * @package  Laravel
  * @category Bundle
- * @version  1.4.1
+ * @version  1.4.4
  * @author   Bilal Gultekin <bilal@bilal.im>
  */
 
@@ -21,7 +21,14 @@ use Illuminate\Filesystem\Filesystem;
 
 class Datatables
 {
+    /**
+     * @var \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder $query
+     */
     public $query;
+
+    /**
+     * @var string $query_type 'eloquent' | 'fluent'
+     */
     protected $query_type;
 
     protected $extra_columns = array();
@@ -51,52 +58,82 @@ class Datatables
 
     /**
      * Read Input into $this->input according to jquery.dataTables.js version
+     *
      */
     public function __construct()
     {
 
-        if (Input::has('draw')) {
+        $this->setData($this->processData(Input::get()));
 
-            // version 1.10+
-            $this->input = Input::get();
+        return $this;
+    }
+
+    /**
+     * Will take an input array and return the formatted dataTables data as an array
+     * @param array $input
+     * @return array
+     */
+    public function processData($input = []) {
+        $formatted_input = [];
+
+        if (isset($input['draw'])) {
+            // DT version 1.10+
+
+            $formatted_input = $input;
 
         } else {
+            // DT version < 1.10
 
-            // version < 1.10
-
-            $this->input['draw'] = Input::get('sEcho', '');
-            $this->input['start'] = Input::get('iDisplayStart');
-            $this->input['length'] = Input::get('iDisplayLength');
-            $this->input['search'] = array(
-                'value' => Input::get('sSearch', ''),
-                'regex' => Input::get('bRegex', ''),
+            $formatted_input['draw'] = Arr::get($input, 'sEcho', '');
+            $formatted_input['start'] = Arr::get($input, 'iDisplayStart', 0);
+            $formatted_input['length'] = Arr::get($input, 'iDisplayLength', 10);
+            $formatted_input['search'] = array(
+                'value' => Arr::get($input, 'sSearch', ''),
+                'regex' => Arr::get($input, 'bRegex', ''),
             );
-            $this->input['_'] = Input::get('_', '');
+            $formatted_input['_'] = Arr::get($input, '_', '');
 
-            $columns = explode(',', Input::get('sColumns', ''));
-            $this->input['columns'] = array();
-            for ($i = 0; $i < Input::get('iColumns', 0); $i++) {
+            $columns = explode(',', Arr::get($input, 'sColumns', ''));
+            $formatted_input['columns'] = array();
+            for ($i = 0; $i < Arr::get($input, 'iColumns', 0); $i++) {
                 $arr = array();
                 $arr['name'] = isset($columns[$i]) ? $columns[$i] : '';
-                $arr['data'] = Input::get('mDataProp_' . $i, '');
-                $arr['searchable'] = Input::get('bSearchable_' . $i, '');
+                $arr['data'] = Arr::get($input, 'mDataProp_' . $i, '');
+                $arr['searchable'] = Arr::get($input, 'bSearchable_' . $i, '');
                 $arr['search'] = array();
-                $arr['search']['value'] = Input::get('sSearch_' . $i, '');
-                $arr['search']['regex'] = Input::get('bRegex_' . $i, '');
-                $arr['orderable'] = Input::get('bSortable_' . $i, '');
-                $this->input['columns'][] = $arr;
+                $arr['search']['value'] = Arr::get($input, 'sSearch_' . $i, '');
+                $arr['search']['regex'] = Arr::get($input, 'bRegex_' . $i, '');
+                $arr['orderable'] = Arr::get($input, 'bSortable_' . $i, '');
+                $formatted_input['columns'][] = $arr;
             }
 
-            $this->input['order'] = array();
-            for ($i = 0; $i < Input::get('iSortingCols', 0); $i++) {
+            $formatted_input['order'] = array();
+            for ($i = 0; $i < Arr::get($input, 'iSortingCols', 0); $i++) {
                 $arr = array();
-                $arr['column'] = Input::get('iSortCol_' . $i, '');
-                $arr['dir'] = Input::get('sSortDir_' . $i, '');
-                $this->input['order'][] = $arr;
+                $arr['column'] = Arr::get($input, 'iSortCol_' . $i, '');
+                $arr['dir'] = Arr::get($input, 'sSortDir_' . $i, '');
+                $formatted_input['order'][] = $arr;
             }
         }
 
-        return $this;
+        return $formatted_input;
+    }
+
+    /**
+     * @return array $this->input
+     */
+    public function getData() {
+        return $this->input;
+    }
+
+    /**
+     * Sets input data.
+     * Can be used when not wanting to use default Input data.
+     *
+     * @param array $data
+     */
+    public function setData($data) {
+        $this->input = $data;
     }
 
     /**
@@ -110,7 +147,7 @@ class Datatables
     public static function of($query, $dataFullSupport = null)
     {
         $ins = new static;
-        $ins->dataFullSupport = $dataFullSupport;
+        $ins->dataFullSupport = ($dataFullSupport)? : Config::get('datatables::dataFullSupport', false);
         $ins->save_query($query);
 
         return $ins;
