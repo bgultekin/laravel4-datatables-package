@@ -163,8 +163,8 @@ class Datatables
                 }
             };
 
-            $result_array = [];
-            \array_walk($this->result_array, $walk);
+            $result_array = array();
+            array_walk($this->result_array, $walk);
             $this->result_array = $result_array;
 
         }
@@ -311,7 +311,7 @@ class Datatables
                 return $column['data'];
             }, $this->input['columns']);
         } else {
-            $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns ?: []) : ($this->query->columns ?: []);
+            $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns ?: array()) : ($this->query->columns ?: array());
         }
     }
 
