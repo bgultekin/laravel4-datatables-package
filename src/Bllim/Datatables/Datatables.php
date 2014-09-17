@@ -576,6 +576,13 @@ class Datatables
                             
                             $method_name = 'or' . ucfirst($_this->filter_columns[$columns_copy[$i]]['method']);
                             
+                            if (isset($_this->filter_columns[$columns_copy[$i]]['parameters'][1])
+                                && strtoupper(trim($_this->filter_columns[$columns_copy[$i]]['parameters'][1])) == "LIKE") {
+                                $keyword = $this->format_keyword($_this->input['search']['value']);
+                            } else {
+                                $keyword = $_this->input['search']['value'];
+                            }
+
                             if ( method_exists($query->getQuery(), $method_name) && count($_this->filter_columns[$columns_copy[$i]]['parameters']) <= with(new \ReflectionMethod($query->getQuery(),$method_name))->getNumberOfParameters() )
                             {
                                 call_user_func_array(
@@ -585,19 +592,15 @@ class Datatables
                                     ),
                                     $_this->inject_variable(
                                         $_this->filter_columns[$columns_copy[$i]]['parameters'],
-                                        $_this->input['search']['value']
+                                        $keyword
                                     )
                                 );
                             }
                         } else
                         // otherwise do simple LIKE search                    
                         {
-                        
-                            $keyword = '%'.$_this->input['search']['value'].'%';
-                        
-                            if(Config::get('datatables::search.use_wildcards', false)) {
-                                $keyword = $_this->wildcard_like_string($_this->input['search']['value']);
-                            }
+
+                            $keyword = $this->format_keyword($_this->input['search']['value']);
                         
                             // Check if the database driver is PostgreSQL
                             // If it is, cast the current column to TEXT datatype
@@ -632,6 +635,15 @@ class Datatables
                 // if filter column exists for this columns then use user defined method
                 if (isset($this->filter_columns[$columns_copy[$i]]))
                 {
+
+                    if (isset($this->filter_columns[$columns_copy[$i]]['parameters'][1]) 
+                        && strtoupper(trim($this->filter_columns[$columns_copy[$i]]['parameters'][1])) == "LIKE") {
+                        $keyword = $this->format_keyword($this->input['columns'][$i]['search']['value']);
+                    } else {
+                        $keyword = $this->input['columns'][$i]['search']['value'];
+                    }
+
+
                     call_user_func_array(
                         array(
                             $this->query,
@@ -639,18 +651,14 @@ class Datatables
                         ),
                         $this->inject_variable(
                             $this->filter_columns[$columns_copy[$i]]['parameters'],
-                            $this->input['columns'][$i]['search']['value']
+                            $keyword
                         )
                     );
                     
                 } else
                 // otherwise do simple LIKE search
-                {                        
-                    $keyword = '%'.$this->input['columns'][$i]['search']['value'].'%';
-                    
-                    if(Config::get('datatables::search.use_wildcards', false)) {
-                        $keyword = $this->wildcard_like_string($this->input['columns'][$i]['search']['value']);
-                    }
+                {
+                    $keyword = $this->format_keyword($this->input['columns'][$i]['search']['value']);
                     
                     if(Config::get('datatables::search.case_insensitive', false)) {
                         $column = $db_prefix . $columns_clean[$i];
@@ -662,6 +670,23 @@ class Datatables
                 }
             }
         }
+    }
+
+    /**
+     * This will format the keyword as needed for "LIKE" based on config settings
+     *
+     * @param string $value
+     * @return string
+     */
+    public function format_keyword($value) {
+        
+        if(Config::get('datatables::search.use_wildcards', false)) {
+            $keyword = '%'.$this->wildcard_like_string($value).'%';
+        } else {
+            $keyword = '%'.trim($value).'%';
+        }
+
+        return $keyword;
     }
 
     /**
