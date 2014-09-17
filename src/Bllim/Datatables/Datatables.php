@@ -41,7 +41,8 @@ class Datatables
     protected $result_array_r = array();
 
     protected $input = array();
-    protected $mDataSupport;
+    protected $mDataSupport; //previous support included only returning columns as object with key names
+    protected $dataFullSupport; //new support that better implements dot notation without reliance on name column
 
     protected $index_column;
     protected $row_class_tmpl = null;
@@ -100,12 +101,14 @@ class Datatables
     /**
      * Gets query and returns instance of class
      *
+     * @param \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder $query
+     * @param null $dataFullSupport
      * @return Datatables
      */
-    public static function of($query, $mDataSupport=null)
+    public static function of($query, $dataFullSupport=null)
     {
         $ins = new static;
-        $ins->mDataSupport = $mDataSupport;
+        $ins->dataFullSupport = $dataFullSupport;
         $ins->save_query($query);
         return $ins;
     }
@@ -113,11 +116,13 @@ class Datatables
     /**
      * Organizes works
      *
+     * @param bool $mDataSupport
+     * @param bool $raw
      * @return array|json
      */
     public function make($mDataSupport=false,$raw=false)
     {
-        if (!isset($this->mDataSupport)) { $this->mDataSupport = $mDataSupport; }
+        $this->mDataSupport = $mDataSupport;
         $this->create_last_columns();
         $this->init();
         $this->get_result();
@@ -147,7 +152,7 @@ class Datatables
             }, $this->result_object);
         }
 
-        if ($this->mDataSupport) {
+        if ($this->dataFullSupport) {
             $walk = function($value, $key, $prefix = null) use (&$walk, &$result_array) {
                 $key = (!is_null($prefix)) ? ($prefix.".".$key) : $key;
                 if (is_array($value)) {
@@ -181,6 +186,9 @@ class Datatables
     /**
      * Adds extra columns to extra_columns
      *
+     * @param string $name
+     * @param string|callable $content
+     * @param bool $order
      * @return $this
      */
     public function add_column($name,$content,$order = false)
@@ -194,6 +202,8 @@ class Datatables
     /**
      * Adds column names to edit_columns
      *
+     * @param string $name
+     * @param string|callable $content
      * @return $this
      */
     public function edit_column($name,$content)
@@ -218,6 +228,9 @@ class Datatables
     /**
      * Adds column filter to filter_columns
      *
+     * @param string $column
+     * @param string $method
+     * @param mixed ...,... All the individual parameters required for specified $method
      * @return $this
      */
     public function filter_column($column,$method)
@@ -231,7 +244,7 @@ class Datatables
     /**
      * Sets the DataTables index column (as used to set, e.g., id of the <tr> tags) to the named column
      *
-     * @param $name
+     * @param string $name
      * @return $this
      */
     public function set_index_column($name) {
@@ -243,7 +256,7 @@ class Datatables
      * Sets DT_RowClass template
      * result: <tr class="output_from_your_template">
      *
-     * @param $content
+     * @param string|callable $content
      * @return $this
      */
     public function set_row_class($content) {
@@ -255,7 +268,8 @@ class Datatables
      * Sets DT_RowData template for given attribute name
      * result: Datatables invoking $(row).data(name, output_from_your_template)
      *
-     * @param $content
+     * @param string $name
+     * @param string|callable $content
      * @return $this
      */
     public function set_row_data($name, $content) {
@@ -266,13 +280,14 @@ class Datatables
     /**
      * Saves given query and determines its type
      *
+     * @param \Illuminate\Database\Query\Builder|\Illuminate\Database\Eloquent\Builder $query
      * @return null
      */
     protected function save_query($query)
     {
         $this->query = $query;
         $this->query_type = $query instanceof \Illuminate\Database\Query\Builder ? 'fluent' : 'eloquent';
-        if ($this->mDataSupport) {
+        if ($this->dataFullSupport) {
             $this->columns = array_map(function($column) {
                 return $column['data'];
             }, $this->input['columns']);
@@ -298,7 +313,7 @@ class Datatables
                     $value['content'] = $value['content']($this->result_object[$rkey]);
                 endif;
 
-                if ($this->mDataSupport) {
+                if ($this->dataFullSupport) {
                     Arr::set($rvalue, $value['name'], $value['content']);
                 } else {
                     $rvalue = $this->include_in_array($value, $rvalue);
@@ -313,7 +328,7 @@ class Datatables
                     $value['content'] = $value['content']($this->result_object[$rkey]);
                 endif;
 
-                if ($this->mDataSupport) {
+                if ($this->dataFullSupport) {
                     Arr::set($rvalue, $value['name'], $value['content']);
                 } else {
                     $rvalue[$value['name']] = $value['content'];
@@ -327,6 +342,7 @@ class Datatables
      * Converts result_array number indexed array and consider excess columns
      *
      * @return null
+     * @throws \Exception
      */
     protected function regulate_array()
     {
@@ -335,7 +351,7 @@ class Datatables
                 unset($value[$evalue]);
             }
 
-            if ($this->mDataSupport) {
+            if ($this->mDataSupport || $this->dataFullSupport) {
                 $row = $value;
             } else {
                 $row = array_values($value);
@@ -376,10 +392,11 @@ class Datatables
     }
 
     /**
-     * 
+     *
      * Inject searched string into $1 in filter_column parameters
-     * 
-     * @param array $params
+     *
+     * @param array|callable|string|Expression &$params
+     * @param string $value
      * @return array
      */
     private function inject_variable(&$params,$value)
@@ -447,7 +464,10 @@ class Datatables
     /**
      * Parses and compiles strings by using Blade Template System
      *
+     * @param string $str
+     * @param array $data
      * @return string
+     * @throws \Exception
      */
     protected function blader($str,$data = array())
     {
@@ -475,7 +495,10 @@ class Datatables
 
     /**
      * Places item of extra columns into result_array by care of their order
+     * Only necessary if not using mData
      *
+     * @param array $item
+     * @param array $array
      * @return null
      */
     protected function include_in_array($item,$array)
@@ -708,6 +731,7 @@ class Datatables
     /**
      * This will format the keyword as needed for "LIKE" based on config settings
      * If $value already has %, it doesn't motify and just returns the value.
+     *
      * @param string $value
      * @return string
      */
@@ -726,6 +750,8 @@ class Datatables
     /**
      * Adds % wildcards to the given string
      *
+     * @param $str
+     * @param bool $lowercase
      * @return string
      */
     public function wildcard_like_string($str, $lowercase = true)
@@ -748,6 +774,7 @@ class Datatables
 
     /**
      * Counts current query
+     * 
      * @param string $count variable to store to 'count_all' for iTotalRecords, 'display_all' for iTotalDisplayRecords
      * @return null
      */
@@ -810,6 +837,7 @@ class Datatables
     /**
      * Returns column name from <table>.<column>
      *
+     * @param string $str
      * @return string
      */
     protected function getColumnName($str)
@@ -833,6 +861,7 @@ class Datatables
     /**
      * Prints output
      *
+     * @param bool $raw If raw will output array data, otherwise json
      * @return array|json
      */
     protected function output($raw=false)
@@ -859,9 +888,11 @@ class Datatables
             );
 
         }
+
         if(Config::get('app.debug', false)) {
             $output['aQueries'] = DB::getQueryLog();
         }
+
         if($raw) {
             return $output;
         }
