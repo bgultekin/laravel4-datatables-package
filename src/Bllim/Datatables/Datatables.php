@@ -674,11 +674,12 @@ class Datatables
 
     /**
      * This will format the keyword as needed for "LIKE" based on config settings
-     *
+     * If $value already has %, it doesn't motify and just returns the value.
      * @param string $value
      * @return string
      */
     public function format_keyword($value) {
+        if (strpos($value,'%') !== false ) return $value;
         
         if(Config::get('datatables::search.use_wildcards', false)) {
             $keyword = '%'.$this->wildcard_like_string($value).'%';
