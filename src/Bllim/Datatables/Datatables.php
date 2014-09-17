@@ -330,47 +330,48 @@ class Datatables
      */
     protected function regulate_array()
     {
-        if($this->mDataSupport){
-            $this->result_array_r = $this->result_array;
-        }else{
-            foreach ($this->result_array as $key => $value) {
-                foreach ($this->excess_columns as $evalue) {
-                    unset($value[$evalue]);
-                }
-
-                $row = array_values($value);
-                if ($this->index_column) {
-                    if (!array_key_exists($this->index_column, $value)) {
-                        throw new \Exception('Index column set to non-existent column "' . $this->index_column . '"');
-                    }
-                    $row['DT_RowId'] = $value[$this->index_column];
-                }
-                
-                if($this->row_class_tmpl!==null) {
-                    $content = '';
-                    if (is_string($this->row_class_tmpl)) {
-                        $content = $this->blader($this->row_class_tmpl, $value);
-                    } else if(is_callable($this->row_class_tmpl)) {
-                        $content = $this->row_class_tmpl($this->result_object[$key]);
-                    }
-                    $row['DT_RowClass'] = $content;
-                }
-
-                if(count($this->row_data_tmpls)) {
-                    $row['DT_RowData'] = array();
-                    foreach($this->row_data_tmpls as $tkey => $tvalue) {
-                        $content = '';
-                        if (is_string($tvalue)) {
-                            $content = $this->blader($tvalue, $value);
-                        } else if(is_callable($tvalue)) {
-                            $content = $tvalue($this->result_object[$key]);
-                        }
-                        $row['DT_RowData'][$tkey] = $content;
-                    }
-                }
-                
-                $this->result_array_r[] = $row;
+        foreach ($this->result_array as $key => $value) {
+            foreach ($this->excess_columns as $evalue) {
+                unset($value[$evalue]);
             }
+
+            if ($this->mDataSupport) {
+                $row = $value;
+            } else {
+                $row = array_values($value);
+            }
+
+            if ($this->index_column) {
+                if (!array_key_exists($this->index_column, $value)) {
+                    throw new \Exception('Index column set to non-existent column "' . $this->index_column . '"');
+                }
+                $row['DT_RowId'] = $value[$this->index_column];
+            }
+
+            if($this->row_class_tmpl!==null) {
+                $content = '';
+                if (is_string($this->row_class_tmpl)) {
+                    $content = $this->blader($this->row_class_tmpl, $value);
+                } else if(is_callable($this->row_class_tmpl)) {
+                    $content = $this->row_class_tmpl($this->result_object[$key]);
+                }
+                $row['DT_RowClass'] = $content;
+            }
+
+            if(count($this->row_data_tmpls)) {
+                $row['DT_RowData'] = array();
+                foreach($this->row_data_tmpls as $tkey => $tvalue) {
+                    $content = '';
+                    if (is_string($tvalue)) {
+                        $content = $this->blader($tvalue, $value);
+                    } else if(is_callable($tvalue)) {
+                        $content = $tvalue($this->result_object[$key]);
+                    }
+                    $row['DT_RowData'][$tkey] = $content;
+                }
+            }
+
+            $this->result_array_r[] = $row;
         }
     }
 
