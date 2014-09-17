@@ -102,7 +102,7 @@ class Datatables
      *
      * @return Datatables
      */
-    public static function of($query, $mDataSupport=false)
+    public static function of($query, $mDataSupport=null)
     {
         $ins = new static;
         $ins->mDataSupport = $mDataSupport;
