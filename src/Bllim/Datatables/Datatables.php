@@ -75,6 +75,7 @@ class Datatables
             for($i=0;$i<Input::get('iColumns',0);$i++) {
                 $arr = array();
                 $arr['name'] = isset($columns[$i]) ? $columns[$i] : '';
+                $arr['data'] = Input::get('mDataProp_'.$i,'');
                 $arr['searchable'] = Input::get('bSearchable_'.$i,'');
                 $arr['search'] = array();
                 $arr['search']['value'] = Input::get('sSearch_'.$i,'');
@@ -98,7 +99,7 @@ class Datatables
     /**
      * Gets query and returns instance of class
      *
-     * @return null
+     * @return Datatables
      */
     public static function of($query)
     {
@@ -110,7 +111,7 @@ class Datatables
     /**
      * Organizes works
      *
-     * @return null
+     * @return array|json
      */
     public function make($mDataSupport=false,$raw=false)
     {
@@ -197,10 +198,10 @@ class Datatables
     }
 
     /**
-    * Adds column filter to filter_columns
-    *
-    * @return $this
-    */
+     * Adds column filter to filter_columns
+     *
+     * @return $this
+     */
     public function filter_column($column,$method)
     {
         $params = func_get_args();
@@ -253,7 +254,7 @@ class Datatables
     {
         $this->query = $query;
         $this->query_type = $query instanceof \Illuminate\Database\Query\Builder ? 'fluent' : 'eloquent';
-        $this->columns = $this->query_type == 'eloquent' ? $this->query->getQuery()->columns : $this->query->columns;
+        $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns?:[]) : ($this->query->columns?:[]);
     }
 
     /**
@@ -268,9 +269,9 @@ class Datatables
             foreach ($this->extra_columns as $key => $value) {
 
                 if (is_string($value['content'])):
-                $value['content'] = $this->blader($value['content'], $rvalue);
+                    $value['content'] = $this->blader($value['content'], $rvalue);
                 elseif (is_callable($value['content'])):
-                $value['content'] = $value['content']($this->result_object[$rkey]);
+                    $value['content'] = $value['content']($this->result_object[$rkey]);
                 endif;
 
                 $rvalue = $this->include_in_array($value,$rvalue);
@@ -279,9 +280,9 @@ class Datatables
             foreach ($this->edit_columns as $key => $value) {
 
                 if (is_string($value['content'])):
-                $value['content'] = $this->blader($value['content'], $rvalue);
+                    $value['content'] = $this->blader($value['content'], $rvalue);
                 elseif (is_callable($value['content'])):
-                $value['content'] = $value['content']($this->result_object[$rkey]);
+                    $value['content'] = $value['content']($this->result_object[$rkey]);
                 endif;
 
                 $rvalue[$value['name']] = $value['content'];
@@ -636,7 +637,7 @@ class Datatables
                             $this->query,
                             $this->filter_columns[$columns_copy[$i]]['method']
                         ),
-                            $this->inject_variable(
+                        $this->inject_variable(
                             $this->filter_columns[$columns_copy[$i]]['parameters'],
                             $this->input['columns'][$i]['search']['value']
                         )
@@ -695,8 +696,8 @@ class Datatables
      * @param string $count variable to store to 'count_all' for iTotalRecords, 'display_all' for iTotalDisplayRecords
      * @return null
      */
-     protected function count($count  = 'count_all')
-     {   
+    protected function count($count  = 'count_all')
+    {
 
         //Get columns to temp var.
         if($this->query_type == 'eloquent') {
@@ -746,15 +747,15 @@ class Datatables
         }
 
         $this->$count = DB::connection($connection)
-        ->table(DB::raw('('.$myQuery->toSql().') AS count_row_table'))
-        ->setBindings($myQuery->getBindings())->count();
+            ->table(DB::raw('('.$myQuery->toSql().') AS count_row_table'))
+            ->setBindings($myQuery->getBindings())->count();
 
     }
 
     /**
      * Returns column name from <table>.<column>
      *
-     * @return null
+     * @return string
      */
     protected function getColumnName($str)
     {
@@ -777,7 +778,7 @@ class Datatables
     /**
      * Prints output
      *
-     * @return null
+     * @return array|json
      */
     protected function output($raw=false)
     {
