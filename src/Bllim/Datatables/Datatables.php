@@ -877,6 +877,9 @@ class Datatables
      */
     protected function prefixColumn($column)
     {
+//        $query = ($this->query_type == 'eloquent') ? $this->query->getQuery() : $this->query;
+//        return $query->getGrammar()->wrap($query);
+
         $table_names = $this->tableNames();
         if (count(array_filter($table_names, function($value) use (&$column) { return strpos($column, $value.".") === 0; }))) {
             //the column starts with one of the table names
