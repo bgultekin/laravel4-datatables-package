@@ -878,7 +878,7 @@ class Datatables
     protected function prefixColumn($column)
     {
 //        $query = ($this->query_type == 'eloquent') ? $this->query->getQuery() : $this->query;
-//        return $query->getGrammar()->wrap($query);
+//        return $query->getGrammar()->wrap($column);
 
         $table_names = $this->tableNames();
         if (count(array_filter($table_names, function($value) use (&$column) { return strpos($column, $value.".") === 0; }))) {
@@ -904,7 +904,7 @@ class Datatables
         foreach ($joins as $join) {
             $table = preg_split("/ as /i", $join->table);
             $names[] = $table[0];
-            if (isset($table[1]) && strpos($table[1], $this->databasePrefix()) == 0) {
+            if (isset($table[1]) && !empty($this->databasePrefix()) && strpos($table[1], $this->databasePrefix()) == 0) {
                 $names[] = preg_replace('/^'.$this->databasePrefix().'/', '', $table[1]);
             }
         }
