@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Input;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use Illuminate\View\Compilers\BladeCompiler;
 use Illuminate\Filesystem\Filesystem;
 
@@ -148,7 +149,7 @@ class Datatables
     {
         $ins = new static;
         $ins->dataFullSupport = ($dataFullSupport)? : Config::get('datatables::dataFullSupport', false);
-        $ins->save_query($query);
+        $ins->saveQuery($query);
 
         return $ins;
     }
@@ -164,11 +165,11 @@ class Datatables
     public function make($mDataSupport = false, $raw = false)
     {
         $this->mDataSupport = $mDataSupport;
-        $this->create_last_columns();
+        $this->createLastColumns();
         $this->init();
-        $this->get_result();
-        $this->init_columns();
-        $this->regulate_array();
+        $this->getResult();
+        $this->initColumns();
+        $this->regulateArray();
 
         return $this->output($raw);
     }
@@ -178,7 +179,7 @@ class Datatables
      *
      * @return null
      */
-    protected function get_result()
+    protected function getResult()
     {
         if ($this->query_type == 'eloquent') {
             $this->result_object = $this->query->get();
@@ -231,7 +232,7 @@ class Datatables
      *
      * @return $this
      */
-    public function add_column($name, $content, $order = false)
+    public function addColumn($name, $content, $order = false)
     {
         $this->sColumns[] = $name;
 
@@ -248,7 +249,7 @@ class Datatables
      *
      * @return $this
      */
-    public function edit_column($name, $content)
+    public function editColumn($name, $content)
     {
         $this->edit_columns[] = array('name' => $name, 'content' => $content);
 
@@ -261,7 +262,7 @@ class Datatables
      *
      * @return $this
      */
-    public function remove_column()
+    public function removeColumn()
     {
         $names = func_get_args();
         $this->excess_columns = array_merge($this->excess_columns, $names);
@@ -278,7 +279,7 @@ class Datatables
      *
      * @return $this
      */
-    public function filter_column($column, $method)
+    public function filterColumn($column, $method)
     {
         $params = func_get_args();
         $this->filter_columns[$column] = array('method' => $method, 'parameters' => array_splice($params, 2));
@@ -294,7 +295,7 @@ class Datatables
      *
      * @return $this
      */
-    public function set_index_column($name)
+    public function setIndexColumn($name)
     {
         $this->index_column = $name;
 
@@ -309,7 +310,7 @@ class Datatables
      *
      * @return $this
      */
-    public function set_row_class($content)
+    public function setRowClass($content)
     {
         $this->row_class_tmpl = $content;
 
@@ -325,7 +326,7 @@ class Datatables
      *
      * @return $this
      */
-    public function set_row_data($name, $content)
+    public function setRowData($name, $content)
     {
         $this->row_data_tmpls[$name] = $content;
 
@@ -339,7 +340,7 @@ class Datatables
      *
      * @return null
      */
-    protected function save_query($query)
+    protected function saveQuery($query)
     {
         $this->query = $query;
         $this->query_type = $query instanceof \Illuminate\Database\Query\Builder ? 'fluent' : 'eloquent';
@@ -357,7 +358,7 @@ class Datatables
      *
      * @return null
      */
-    protected function init_columns()
+    protected function initColumns()
     {
         foreach ($this->result_array as $rkey => &$rvalue) {
 
@@ -372,7 +373,7 @@ class Datatables
                 if ($this->dataFullSupport) {
                     Arr::set($rvalue, $value['name'], $value['content']);
                 } else {
-                    $rvalue = $this->include_in_array($value, $rvalue);
+                    $rvalue = $this->includeInArray($value, $rvalue);
                 }
             }
 
@@ -400,7 +401,7 @@ class Datatables
      * @return null
      * @throws \Exception
      */
-    protected function regulate_array()
+    protected function regulateArray()
     {
         foreach ($this->result_array as $key => $value) {
             foreach ($this->excess_columns as $evalue) {
@@ -456,11 +457,11 @@ class Datatables
      *
      * @return array
      */
-    private function inject_variable(&$params, $value)
+    private function injectVariable(&$params, $value)
     {
         if (is_array($params)) {
             foreach ($params as $key => $param) {
-                $params[$key] = $this->inject_variable($param, $value);
+                $params[$key] = $this->injectVariable($param, $value);
             }
 
         } elseif ($params instanceof \Illuminate\Database\Query\Expression) {
@@ -481,7 +482,7 @@ class Datatables
      *
      * @return null
      */
-    protected function create_last_columns()
+    protected function createLastColumns()
     {
         $extra_columns_indexes = array();
         $last_columns = array();
@@ -555,7 +556,7 @@ class Datatables
      *
      * @return null
      */
-    protected function include_in_array($item, $array)
+    protected function includeInArray($item, $array)
     {
         if ($item['order'] === false) {
             return array_merge($array, array($item['name'] => $item['content']));
@@ -601,7 +602,7 @@ class Datatables
     protected function ordering()
     {
         if (array_key_exists('order', $this->input) && count($this->input['order']) > 0) {
-            $columns = $this->clean_columns($this->last_columns);
+            $columns = $this->cleanColumns($this->last_columns);
 
             for ($i = 0, $c = count($this->input['order']); $i < $c; $i++) {
                 $order_col = (int)$this->input['order'][$i]['column'];
@@ -621,7 +622,7 @@ class Datatables
      *
      * @return array
      */
-    protected function clean_columns($cols, $use_alias = true)
+    protected function cleanColumns($cols, $use_alias = true)
     {
         $return = array();
         foreach ($cols as $i => $col) {
@@ -650,8 +651,8 @@ class Datatables
         $columns_copy = array_values($columns_copy);
 
         // copy of $this->columns cleaned for database queries
-        $columns_clean = $this->clean_columns($columns_copy, false);
-        $columns_copy = $this->clean_columns($columns_copy, true);
+        $columns_clean = $this->cleanColumns($columns_copy, false);
+        $columns_copy = $this->cleanColumns($columns_copy, true);
 
         // global search
         if ($this->input['search']['value'] != '') {
@@ -659,7 +660,7 @@ class Datatables
 
             $this->query->where(function ($query) use (&$_this, $columns_copy, $columns_clean) {
 
-                $db_prefix = $_this->database_prefix();
+                $db_prefix = $_this->databasePrefix();
 
                 for ($i = 0, $c = count($_this->input['columns']); $i < $c; $i++) {
                     if (isset($columns_copy[$i]) && $_this->input['columns'][$i]['searchable'] == "true") {
@@ -674,7 +675,7 @@ class Datatables
                             if (isset($_this->filter_columns[$columns_copy[$i]]['parameters'][1])
                                 && strtoupper(trim($_this->filter_columns[$columns_copy[$i]]['parameters'][1])) == "LIKE"
                             ) {
-                                $keyword = $this->format_keyword($_this->input['search']['value']);
+                                $keyword = $_this->formatKeyword($_this->input['search']['value']);
                             } else {
                                 $keyword = $_this->input['search']['value'];
                             }
@@ -685,7 +686,7 @@ class Datatables
                                         $query,
                                         $method_name
                                     ),
-                                    $_this->inject_variable(
+                                    $_this->injectVariable(
                                         $_this->filter_columns[$columns_copy[$i]]['parameters'],
                                         $keyword
                                     )
@@ -694,7 +695,7 @@ class Datatables
                         } else // otherwise do simple LIKE search
                         {
 
-                            $keyword = $this->format_keyword($_this->input['search']['value']);
+                            $keyword = $_this->formatKeyword($_this->input['search']['value']);
 
                             // Check if the database driver is PostgreSQL
                             // If it is, cast the current column to TEXT datatype
@@ -719,7 +720,7 @@ class Datatables
 
         }
 
-        $db_prefix = $this->database_prefix();
+        $db_prefix = $this->databasePrefix();
 
         // column search
         for ($i = 0, $c = count($this->input['columns']); $i < $c; $i++) {
@@ -730,7 +731,7 @@ class Datatables
                     if (isset($this->filter_columns[$columns_copy[$i]]['parameters'][1])
                         && strtoupper(trim($this->filter_columns[$columns_copy[$i]]['parameters'][1])) == "LIKE"
                     ) {
-                        $keyword = $this->format_keyword($this->input['columns'][$i]['search']['value']);
+                        $keyword = $this->formatKeyword($this->input['columns'][$i]['search']['value']);
                     } else {
                         $keyword = $this->input['columns'][$i]['search']['value'];
                     }
@@ -741,7 +742,7 @@ class Datatables
                             $this->query,
                             $this->filter_columns[$columns_copy[$i]]['method']
                         ),
-                        $this->inject_variable(
+                        $this->injectVariable(
                             $this->filter_columns[$columns_copy[$i]]['parameters'],
                             $keyword
                         )
@@ -749,7 +750,7 @@ class Datatables
 
                 } else // otherwise do simple LIKE search
                 {
-                    $keyword = $this->format_keyword($this->input['columns'][$i]['search']['value']);
+                    $keyword = $this->formatKeyword($this->input['columns'][$i]['search']['value']);
 
                     if (Config::get('datatables::search.case_insensitive', false)) {
                         $column = $db_prefix . $columns_clean[$i];
@@ -771,14 +772,14 @@ class Datatables
      *
      * @return string
      */
-    public function format_keyword($value)
+    public function formatKeyword($value)
     {
         if (strpos($value, '%') !== false) {
             return $value;
         }
 
         if (Config::get('datatables::search.use_wildcards', false)) {
-            $keyword = '%' . $this->wildcard_like_string($value) . '%';
+            $keyword = '%' . $this->wildcardLikeString($value) . '%';
         } else {
             $keyword = '%' . trim($value) . '%';
         }
@@ -794,7 +795,7 @@ class Datatables
      *
      * @return string
      */
-    public function wildcard_like_string($str, $lowercase = true)
+    public function wildcardLikeString($str, $lowercase = true)
     {
         if ($lowercase) {
             $str = lowercase($str);
@@ -808,7 +809,7 @@ class Datatables
      *
      * @return string
      */
-    public function database_prefix()
+    public function databasePrefix()
     {
         return Config::get('database.connections.' . Config::get('database.default') . '.prefix', '');
     }
@@ -945,7 +946,7 @@ class Datatables
      */
     public function __call($name, $arguments)
     {
-        $name = strtolower(preg_replace('/([^A-Z])([A-Z])/', "$1_$2", $name));
+        $name = Str::camel(strtolower($name));
         if (method_exists($this, $name)) {
             return call_user_func_array(array($this, $name), $arguments);
         } else {
