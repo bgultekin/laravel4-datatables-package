@@ -358,7 +358,7 @@ class Datatables
         $this->query_type = $query instanceof \Illuminate\Database\Query\Builder ? 'fluent' : 'eloquent';
         if ($this->dataFullSupport) {
             $this->columns = array_map(function ($column) {
-                return $column['data'];
+                return trim(DB::connection()->getPdo()->quote($column['data']), "'");
             }, $this->input['columns']);
         } else {
             $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns ?: array()) : ($this->query->columns ?: array());
@@ -682,8 +682,6 @@ class Datatables
 
             $this->query->where(function ($query) use (&$that, $column_aliases, $column_names) {
 
-                $db_prefix = $that->databasePrefix();
-
                 for ($i = 0, $c = count($that->input['columns']); $i < $c; $i++) {
                     if (isset($column_aliases[$i]) && $that->input['columns'][$i]['searchable'] == "true") {
 
@@ -731,12 +729,13 @@ class Datatables
                             // If it is, cast the current column to TEXT datatype
                             $cast_begin = null;
                             $cast_end = null;
-                            if (DB::getDriverName() === 'pgsql') {
+                            if ($this->databaseDriver() === 'pgsql') {
                                 $cast_begin = "CAST(";
                                 $cast_end = " as TEXT)";
                             }
 
-                            $column = $db_prefix . $column_names[$i];
+                            //there's no need to put the prefix unless the column name is prefixed with the table name.
+                            $column = $this->prefixColumn($column_names[$i]);
 
                             if (Config::get('datatables::search.case_insensitive', false)) {
                                 $query->orwhere(DB::raw('LOWER(' . $cast_begin . $column . $cast_end . ')'), 'LIKE', strtolower($keyword));
@@ -750,8 +749,6 @@ class Datatables
             });
 
         }
-
-        $db_prefix = $this->databasePrefix();
 
         // column search
         for ($i = 0, $c = count($this->input['columns']); $i < $c; $i++) {
@@ -783,13 +780,19 @@ class Datatables
 
                 } else // otherwise do simple LIKE search
                 {
+
                     $keyword = $this->formatKeyword($this->input['columns'][$i]['search']['value']);
 
+                    //there's no need to put the prefix unless the column name is prefixed with the table name.
+                    $column = $this->prefixColumn($column_names[$i]);
+
                     if (Config::get('datatables::search.case_insensitive', false)) {
-                        $column = $db_prefix . $column_names[$i];
                         $this->query->where(DB::raw('LOWER(' . $column . ')'), 'LIKE', strtolower($keyword));
                     } else {
-                        $col = strstr($column_names[$i], '(') ? DB::raw($column_names[$i]) : $column_names[$i];
+                        //note: so, when would a ( be in the columns?  It will break a select if that's put in the columns
+                        //without a DB::raw.  It could get there in filter columns, but it wouldn't be delt with here.
+                        //why is it searching for ( ?
+                        $col = strstr($column_names[$i], '(') ? DB::raw($column) : $column;
                         $this->query->where($col, 'LIKE', $keyword);
                     }
                 }
@@ -844,7 +847,67 @@ class Datatables
      */
     public function databasePrefix()
     {
-        return Config::get('database.connections.' . Config::get('database.default') . '.prefix', '');
+        if ($this->query_type == 'eloquent') {
+            $query = $this->query->getQuery();
+        } else {
+            $query = $this->query;
+        }
+        return $query->getGrammar()->getTablePrefix();
+        //return Config::get('database.connections.' . Config::get('database.default') . '.prefix', '');
+    }
+
+    /**
+     * Returns current database driver
+     */
+    protected function databaseDriver()
+    {
+        if ($this->query_type == 'eloquent') {
+            $query = $this->query->getQuery();
+        } else {
+            $query = $this->query;
+        }
+        return $query->getConnection()->getDriverName();
+    }
+
+    /**
+     * Will prefix column if needed
+     *
+     * @param string $column
+     * @return string
+     */
+    protected function prefixColumn($column)
+    {
+        $table_names = $this->tableNames();
+        if (count(array_filter($table_names, function($value) use (&$column) { return strpos($column, $value.".") === 0; }))) {
+            //the column starts with one of the table names
+            $column = $this->databasePrefix() . $column;
+        }
+        return $column;
+    }
+
+    /**
+     * Will look through the query and all it's joins to determine the table names
+     *
+     * @return array
+     */
+    protected function tableNames()
+    {
+        $names = [];
+
+        $query = ($this->query_type == 'eloquent') ? $this->query->getQuery() : $this->query;
+
+        $names[] = $query->from;
+        $joins = $query->joins?:array();
+        foreach ($joins as $join) {
+            $table = preg_split("/ as /i", $join->table);
+            $names[] = $table[0];
+            if (isset($table[1]) && strpos($table[1], $this->databasePrefix()) == 0) {
+                $names[] = preg_replace('/^'.$this->databasePrefix().'/', '', $table[1]);
+            }
+        }
+
+        return $names;
+
     }
 
     /**
