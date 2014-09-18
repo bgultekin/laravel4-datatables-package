@@ -52,7 +52,7 @@ class Datatables
     protected $mDataSupport; //previous support included only returning columns as object with key names
     protected $dataFullSupport; //new support that better implements dot notation without reliance on name column
 
-    protected $index_column;
+    protected $index_column = null;
     protected $row_class_tmpl = null;
     protected $row_data_tmpls = array();
 
@@ -71,10 +71,13 @@ class Datatables
 
     /**
      * Will take an input array and return the formatted dataTables data as an array
+     *
      * @param array $input
+     *
      * @return array
      */
-    public function processData($input = []) {
+    public function processData($input = [])
+    {
         $formatted_input = [];
 
         if (isset($input['draw'])) {
@@ -123,7 +126,8 @@ class Datatables
     /**
      * @return array $this->input
      */
-    public function getData() {
+    public function getData()
+    {
         return $this->input;
     }
 
@@ -133,7 +137,8 @@ class Datatables
      *
      * @param array $data
      */
-    public function setData($data) {
+    public function setData($data)
+    {
         $this->input = $data;
     }
 
@@ -148,7 +153,7 @@ class Datatables
     public static function of($query, $dataFullSupport = null)
     {
         $ins = new static;
-        $ins->dataFullSupport = ($dataFullSupport)? : Config::get('datatables::dataFullSupport', false);
+        $ins->dataFullSupport = ($dataFullSupport) ?: Config::get('datatables::dataFullSupport', false);
         $ins->saveQuery($query);
 
         return $ins;
@@ -361,14 +366,8 @@ class Datatables
     protected function initColumns()
     {
         foreach ($this->result_array as $rkey => &$rvalue) {
-
             foreach ($this->extra_columns as $key => $value) {
-
-                if (is_string($value['content'])):
-                    $value['content'] = $this->blader($value['content'], $rvalue);
-                elseif (is_callable($value['content'])):
-                    $value['content'] = $value['content']($this->result_object[$rkey]);
-                endif;
+                $value['content'] = $this->getContent($value['content'], $rvalue, $this->result_object[$rkey]);
 
                 if ($this->dataFullSupport) {
                     Arr::set($rvalue, $value['name'], $value['content']);
@@ -378,19 +377,13 @@ class Datatables
             }
 
             foreach ($this->edit_columns as $key => $value) {
-
-                if (is_string($value['content'])):
-                    $value['content'] = $this->blader($value['content'], $rvalue);
-                elseif (is_callable($value['content'])):
-                    $value['content'] = $value['content']($this->result_object[$rkey]);
-                endif;
+                $value['content'] = $this->getContent($value['content'], $rvalue, $this->result_object[$rkey]);
 
                 if ($this->dataFullSupport) {
                     Arr::set($rvalue, $value['name'], $value['content']);
                 } else {
                     $rvalue[$value['name']] = $value['content'];
                 }
-
             }
         }
     }
@@ -399,7 +392,6 @@ class Datatables
      * Converts result_array number indexed array and consider excess columns
      *
      * @return null
-     * @throws \Exception
      */
     protected function regulateArray()
     {
@@ -414,33 +406,22 @@ class Datatables
                 $row = array_values($value);
             }
 
-            if ($this->index_column) {
-                if (!array_key_exists($this->index_column, $value)) {
-                    throw new \Exception('Index column set to non-existent column "' . $this->index_column . '"');
+            if ($this->index_column !== null) {
+                if (array_key_exists($this->index_column, $value)) {
+                    $row['DT_RowId'] = $value[$this->index_column];
+                } else {
+                    $row['DT_RowId'] = $this->getContent($this->index_column, $value, $this->result_object[$key]);
                 }
-                $row['DT_RowId'] = $value[$this->index_column];
             }
 
             if ($this->row_class_tmpl !== null) {
-                $content = '';
-                if (is_string($this->row_class_tmpl)) {
-                    $content = $this->blader($this->row_class_tmpl, $value);
-                } else if (is_callable($this->row_class_tmpl)) {
-                    $content = $this->row_class_tmpl($this->result_object[$key]);
-                }
-                $row['DT_RowClass'] = $content;
+                $row['DT_RowClass'] = $this->getContent($this->row_class_tmpl, $value, $this->result_object[$key]);
             }
 
             if (count($this->row_data_tmpls)) {
                 $row['DT_RowData'] = array();
                 foreach ($this->row_data_tmpls as $tkey => $tvalue) {
-                    $content = '';
-                    if (is_string($tvalue)) {
-                        $content = $this->blader($tvalue, $value);
-                    } else if (is_callable($tvalue)) {
-                        $content = $tvalue($this->result_object[$key]);
-                    }
-                    $row['DT_RowData'][$tkey] = $content;
+                    $row['DT_RowData'][$tkey] = $this->getContent($tvalue, $value, $this->result_object[$key]);
                 }
             }
 
@@ -514,6 +495,28 @@ class Datatables
         }
 
         $this->last_columns = $last_columns;
+    }
+
+    /**
+     * Determines if content is callable or blade string, processes and returns
+     *
+     * @param string|callable $content Pre-processed content
+     * @param mixed           $data    data to use with blade template
+     * @param mixed           $param   parameter to call with callable
+     *
+     * @return string Processed content
+     */
+    protected function getContent($content, $data = null, $param = null)
+    {
+        if (is_string($content)) {
+            $return = $this->blader($content, $data);
+        } elseif (is_callable($content)) {
+            $return = $content($param);
+        } else {
+            $return = $content;
+        }
+
+        return $return;
     }
 
     /**
@@ -906,7 +909,7 @@ class Datatables
      */
     protected function output($raw = false)
     {
-        if (Input::has('draw')) {
+        if (Arr::get($this->input, 'draw', false)) {
 
             $output = array(
                 "draw"            => intval($this->input['draw']),
@@ -941,8 +944,9 @@ class Datatables
     }
 
     /**
-     * PR #93
-     * camelCase to snake_case magic method
+     * originally PR #93
+     * Allows previous API calls where the methods were snake_case.
+     * Will convert a camelCase API call to a snake_case call.
      */
     public function __call($name, $arguments)
     {
