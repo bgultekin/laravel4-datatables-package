@@ -674,7 +674,7 @@ class Datatables
 
         // copy of $this->columns cleaned for database queries
         $column_names = $this->cleanColumns($columns_not_removed, false);
-        $column_aliases = $this->cleanColumns($columns_not_removed, true);
+        $column_aliases = $this->cleanColumns($columns_not_removed, !$this->dataFullSupport);
 
         // global search
         if ($this->input['search']['value'] != '') {
