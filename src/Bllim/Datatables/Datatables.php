@@ -405,7 +405,11 @@ class Datatables
     {
         foreach ($this->result_array as $key => $value) {
             foreach ($this->removed_columns as $remove_col_name) {
-                unset($value[$remove_col_name]);
+                if ($this->dataFullSupport) {
+                    Arr::forget($value, $remove_col_name);
+                } else {
+                    unset($value[$remove_col_name]);
+                }
             }
 
             if ($this->mDataSupport || $this->dataFullSupport) {
