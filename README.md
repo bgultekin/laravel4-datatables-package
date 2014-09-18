@@ -201,7 +201,7 @@ $("#users-list").dataTable({
 ```php
 $users = Models\User::select()->ModelJoin('profile');
         return $dataTables = Datatables::of($users)
-            ->filter_column('profile.last_name','where',\DB::raw('CONCAT(profile.last_name,\' \',profile.first_name'),'LIKE','$1')
+            ->filter_column('profile.last_name','where',\DB::raw('CONCAT(profile.last_name,\' \',profile.first_name)'),'LIKE','$1')
             ->filter_column('created_at','where','users.created_at','LIKE','$1')
             //for the blade template only the array data results is provided, it is `extracted` into the template
             ->edit_column('profile.last_name', '{{ $profile["first_name"]." ".$profile["last_name"] }}')
