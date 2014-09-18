@@ -32,27 +32,27 @@ class Datatables
      */
     protected $query_type;
 
-    protected $extra_columns = array();
-    protected $excess_columns = array();
+    protected $added_columns = array();
+    protected $removed_columns = array();
     protected $edit_columns = array();
     protected $filter_columns = array();
     protected $sColumns = array();
 
     public $columns = array();
-    public $last_columns = array();
+    public $aliased_ordered_columns = array();
 
     protected $count_all = 0;
     protected $display_all = 0;
 
     protected $result_object;
     protected $result_array = array();
-    protected $result_array_r = array();
+    protected $result_array_return = array();
 
     protected $input = array();
     protected $mDataSupport; //previous support included only returning columns as object with key names
     protected $dataFullSupport; //new support that better implements dot notation without reliance on name column
 
-    protected $index_column = null;
+    protected $index_column;
     protected $row_class_tmpl = null;
     protected $row_data_tmpls = array();
 
@@ -170,10 +170,10 @@ class Datatables
     public function make($mDataSupport = false, $raw = false)
     {
         $this->mDataSupport = $mDataSupport;
-        $this->createLastColumns();
-        $this->init();
+        $this->createAliasedOrderedColumns();
+        $this->prepareQuery();
         $this->getResult();
-        $this->initColumns();
+        $this->modifyColumns();
         $this->regulateArray();
 
         return $this->output($raw);
@@ -219,7 +219,7 @@ class Datatables
      *
      * @return null
      */
-    protected function init()
+    protected function prepareQuery()
     {
         $this->count('count_all'); //Total records
         $this->filtering();
@@ -229,7 +229,7 @@ class Datatables
     }
 
     /**
-     * Adds extra columns to extra_columns
+     * Adds additional columns to added_columns
      *
      * @param string          $name
      * @param string|callable $content
@@ -241,7 +241,7 @@ class Datatables
     {
         $this->sColumns[] = $name;
 
-        $this->extra_columns[] = array('name' => $name, 'content' => $content, 'order' => $order);
+        $this->added_columns[] = array('name' => $name, 'content' => $content, 'order' => $order);
 
         return $this;
     }
@@ -263,19 +263,23 @@ class Datatables
 
 
     /**
-     * Adds excess columns to excess_columns
+     * This will remove the columns from the returned data.  It will also cause it to skip any filters for those removed columns.
+     * Adds a list of columns to removed_columns
+     *
+     * @params strings ...,... As many individual string parameters matching column names
      *
      * @return $this
      */
     public function removeColumn()
     {
         $names = func_get_args();
-        $this->excess_columns = array_merge($this->excess_columns, $names);
+        $this->removed_columns = array_merge($this->removed_columns, $names);
 
         return $this;
     }
 
     /**
+     * The filtered columns will add query sql options for the specified columns
      * Adds column filter to filter_columns
      *
      * @param string $column
@@ -294,7 +298,10 @@ class Datatables
 
 
     /**
-     * Sets the DataTables index column (as used to set, e.g., id of the <tr> tags) to the named column
+     * Sets the DT_RowID for the DataTables index column (as used to set, e.g., id of the <tr> tags) to the named column
+     * If the index matches a column, then that column value will be set as the id of th <tr>.
+     * If the index doesn't, it will be parsed as either a callback or blade template and that returned value will be the
+     * id of the <tr>
      *
      * @param string $name
      *
@@ -363,10 +370,10 @@ class Datatables
      *
      * @return null
      */
-    protected function initColumns()
+    protected function modifyColumns()
     {
         foreach ($this->result_array as $rkey => &$rvalue) {
-            foreach ($this->extra_columns as $key => $value) {
+            foreach ($this->added_columns as $key => $value) {
                 $value['content'] = $this->getContent($value['content'], $rvalue, $this->result_object[$rkey]);
 
                 if ($this->dataFullSupport) {
@@ -392,12 +399,13 @@ class Datatables
      * Converts result_array number indexed array and consider excess columns
      *
      * @return null
+     * @throws \Exception
      */
     protected function regulateArray()
     {
         foreach ($this->result_array as $key => $value) {
-            foreach ($this->excess_columns as $evalue) {
-                unset($value[$evalue]);
+            foreach ($this->removed_columns as $remove_col_name) {
+                unset($value[$remove_col_name]);
             }
 
             if ($this->mDataSupport || $this->dataFullSupport) {
@@ -425,7 +433,7 @@ class Datatables
                 }
             }
 
-            $this->result_array_r[] = $row;
+            $this->result_array_return[] = $row;
         }
     }
 
@@ -459,30 +467,34 @@ class Datatables
     }
 
     /**
-     * Creates an array which contains published last columns in sql with their index
+     * Creates an array which contains published aliased ordered columns in sql with their index
+     *
+     * Creates an array of column names using column aliases where applicable.
+     * If an added column has a particular order number, it will skip that array key #
+     * and continue to the next.  Leaves dot notation in column names alone.
      *
      * @return null
      */
-    protected function createLastColumns()
+    protected function createAliasedOrderedColumns()
     {
-        $extra_columns_indexes = array();
-        $last_columns = array();
+        $added_columns_indexes = array();
+        $aliased_ordered_columns = array();
         $count = 0;
 
-        foreach ($this->extra_columns as $key => $value) {
+        foreach ($this->added_columns as $key => $value) {
             if ($value['order'] === false) {
                 continue;
             }
-            $extra_columns_indexes[] = $value['order'];
+            $added_columns_indexes[] = $value['order'];
         }
 
         for ($i = 0, $c = count($this->columns); $i < $c; $i++) {
 
-            if (in_array($this->getColumnName($this->columns[$i]), $this->excess_columns)) {
+            if (in_array($this->getColumnName($this->columns[$i]), $this->removed_columns)) {
                 continue;
             }
 
-            if (in_array($count, $extra_columns_indexes)) {
+            if (in_array($count, $added_columns_indexes)) {
                 $count++;
                 $i--;
                 continue;
@@ -490,11 +502,11 @@ class Datatables
 
             // previous regex #^(\S*?)\s+as\s+(\S*?)$# prevented subqueries and functions from being detected as alias
             preg_match('#\s+as\s+(\S*?)$#si', $this->columns[$i], $matches);
-            $last_columns[$count] = empty($matches) ? $this->columns[$i] : $matches[1];
+            $aliased_ordered_columns[$count] = empty($matches) ? $this->columns[$i] : $matches[1];
             $count++;
         }
 
-        $this->last_columns = $last_columns;
+        $this->aliased_ordered_columns = $aliased_ordered_columns;
     }
 
     /**
@@ -605,7 +617,7 @@ class Datatables
     protected function ordering()
     {
         if (array_key_exists('order', $this->input) && count($this->input['order']) > 0) {
-            $columns = $this->cleanColumns($this->last_columns);
+            $columns = $this->cleanColumns($this->aliased_ordered_columns);
 
             for ($i = 0, $c = count($this->input['order']); $i < $c; $i++) {
                 $order_col = (int)$this->input['order'][$i]['column'];
@@ -630,7 +642,12 @@ class Datatables
         $return = array();
         foreach ($cols as $i => $col) {
             preg_match('#^(.*?)\s+as\s+(\S*?)\s*$#si', $col, $matches);
-            $return[$i] = empty($matches) ? ($use_alias ? $this->getColumnName($col) : $col) : $matches[$use_alias ? 2 : 1];
+            if (empty($matches)) {
+                $return[$i] = $use_alias ? $this->getColumnName($col) : $col;
+            } else {
+                $return[$i] = $matches[$use_alias ? 2 : 1];
+            }
+
         }
 
         return $return;
@@ -645,60 +662,70 @@ class Datatables
     {
 
         // copy of $this->columns without columns removed by remove_column
-        $columns_copy = $this->columns;
-        for ($i = 0, $c = count($columns_copy); $i < $c; $i++) {
-            if (in_array($this->getColumnName($columns_copy[$i]), $this->excess_columns)) {
-                unset($columns_copy[$i]);
+        $columns_not_removed = $this->columns;
+        for ($i = 0, $c = count($columns_not_removed); $i < $c; $i++) {
+            if (in_array($this->getColumnName($columns_not_removed[$i]), $this->removed_columns)) {
+                unset($columns_not_removed[$i]);
             }
         }
-        $columns_copy = array_values($columns_copy);
+
+        //reindex keys if columns were removed
+        $columns_not_removed = array_values($columns_not_removed);
 
         // copy of $this->columns cleaned for database queries
-        $columns_clean = $this->cleanColumns($columns_copy, false);
-        $columns_copy = $this->cleanColumns($columns_copy, true);
+        $column_names = $this->cleanColumns($columns_not_removed, false);
+        $column_aliases = $this->cleanColumns($columns_not_removed, true);
 
         // global search
         if ($this->input['search']['value'] != '') {
-            $_this = $this;
+            $that = $this;
 
-            $this->query->where(function ($query) use (&$_this, $columns_copy, $columns_clean) {
+            $this->query->where(function ($query) use (&$that, $column_aliases, $column_names) {
 
-                $db_prefix = $_this->databasePrefix();
+                $db_prefix = $that->databasePrefix();
 
-                for ($i = 0, $c = count($_this->input['columns']); $i < $c; $i++) {
-                    if (isset($columns_copy[$i]) && $_this->input['columns'][$i]['searchable'] == "true") {
+                for ($i = 0, $c = count($that->input['columns']); $i < $c; $i++) {
+                    if (isset($column_aliases[$i]) && $that->input['columns'][$i]['searchable'] == "true") {
+
                         // if filter column exists for this columns then use user defined method
-                        if (isset($_this->filter_columns[$columns_copy[$i]])) {
+                        if (isset($that->filter_columns[$column_aliases[$i]])) {
+
+                            $filter = $that->filter_columns[$column_aliases[$i]];
+
                             // check if "or" equivalent exists for given function
                             // and if the number of parameters given is not excess 
                             // than call the "or" equivalent
 
-                            $method_name = 'or' . ucfirst($_this->filter_columns[$columns_copy[$i]]['method']);
+                            $method_name = 'or' . ucfirst($filter['method']);
 
-                            if (isset($_this->filter_columns[$columns_copy[$i]]['parameters'][1])
-                                && strtoupper(trim($_this->filter_columns[$columns_copy[$i]]['parameters'][1])) == "LIKE"
+                            if (method_exists($query->getQuery(), $method_name)
+                                && count($filter['parameters']) <= with(new \ReflectionMethod($query->getQuery(), $method_name))->getNumberOfParameters()
                             ) {
-                                $keyword = $_this->formatKeyword($_this->input['search']['value']);
-                            } else {
-                                $keyword = $_this->input['search']['value'];
-                            }
 
-                            if (method_exists($query->getQuery(), $method_name) && count($_this->filter_columns[$columns_copy[$i]]['parameters']) <= with(new \ReflectionMethod($query->getQuery(), $method_name))->getNumberOfParameters()) {
+                                if (isset($filter['parameters'][1])
+                                    && strtoupper(trim($filter['parameters'][1])) == "LIKE"
+                                ) {
+                                    $keyword = $that->formatKeyword($that->input['search']['value']);
+                                } else {
+                                    $keyword = $that->input['search']['value'];
+                                }
+
                                 call_user_func_array(
                                     array(
                                         $query,
                                         $method_name
                                     ),
-                                    $_this->injectVariable(
-                                        $_this->filter_columns[$columns_copy[$i]]['parameters'],
+                                    $that->injectVariable(
+                                        $filter['parameters'],
                                         $keyword
                                     )
                                 );
                             }
-                        } else // otherwise do simple LIKE search
-                        {
 
-                            $keyword = $_this->formatKeyword($_this->input['search']['value']);
+                        } else {
+                            // otherwise do simple LIKE search
+
+                            $keyword = $that->formatKeyword($that->input['search']['value']);
 
                             // Check if the database driver is PostgreSQL
                             // If it is, cast the current column to TEXT datatype
@@ -709,7 +736,7 @@ class Datatables
                                 $cast_end = " as TEXT)";
                             }
 
-                            $column = $db_prefix . $columns_clean[$i];
+                            $column = $db_prefix . $column_names[$i];
 
                             if (Config::get('datatables::search.case_insensitive', false)) {
                                 $query->orwhere(DB::raw('LOWER(' . $cast_begin . $column . $cast_end . ')'), 'LIKE', strtolower($keyword));
@@ -717,6 +744,7 @@ class Datatables
                                 $query->orwhere(DB::raw($cast_begin . $column . $cast_end), 'LIKE', $keyword);
                             }
                         }
+
                     }
                 }
             });
@@ -727,12 +755,14 @@ class Datatables
 
         // column search
         for ($i = 0, $c = count($this->input['columns']); $i < $c; $i++) {
-            if (isset($columns_copy[$i]) && $this->input['columns'][$i]['orderable'] == "true" && $this->input['columns'][$i]['search']['value'] != '') {
+            if (isset($column_aliases[$i]) && $this->input['columns'][$i]['orderable'] == "true" && $this->input['columns'][$i]['search']['value'] != '') {
                 // if filter column exists for this columns then use user defined method
-                if (isset($this->filter_columns[$columns_copy[$i]])) {
+                if (isset($this->filter_columns[$column_aliases[$i]])) {
 
-                    if (isset($this->filter_columns[$columns_copy[$i]]['parameters'][1])
-                        && strtoupper(trim($this->filter_columns[$columns_copy[$i]]['parameters'][1])) == "LIKE"
+                    $filter = $this->filter_columns[$column_aliases[$i]];
+
+                    if (isset($filter['parameters'][1])
+                        && strtoupper(trim($filter['parameters'][1])) == "LIKE"
                     ) {
                         $keyword = $this->formatKeyword($this->input['columns'][$i]['search']['value']);
                     } else {
@@ -743,10 +773,10 @@ class Datatables
                     call_user_func_array(
                         array(
                             $this->query,
-                            $this->filter_columns[$columns_copy[$i]]['method']
+                            $filter['method']
                         ),
                         $this->injectVariable(
-                            $this->filter_columns[$columns_copy[$i]]['parameters'],
+                            $filter['parameters'],
                             $keyword
                         )
                     );
@@ -756,10 +786,10 @@ class Datatables
                     $keyword = $this->formatKeyword($this->input['columns'][$i]['search']['value']);
 
                     if (Config::get('datatables::search.case_insensitive', false)) {
-                        $column = $db_prefix . $columns_clean[$i];
+                        $column = $db_prefix . $column_names[$i];
                         $this->query->where(DB::raw('LOWER(' . $column . ')'), 'LIKE', strtolower($keyword));
                     } else {
-                        $col = strstr($columns_clean[$i], '(') ? DB::raw($columns_clean[$i]) : $columns_clean[$i];
+                        $col = strstr($column_names[$i], '(') ? DB::raw($column_names[$i]) : $column_names[$i];
                         $this->query->where($col, 'LIKE', $keyword);
                     }
                 }
@@ -782,7 +812,7 @@ class Datatables
         }
 
         if (Config::get('datatables::search.use_wildcards', false)) {
-            $keyword = '%' . $this->wildcardLikeString($value) . '%';
+            $keyword = '%' . $this->formatWildcard($value) . '%';
         } else {
             $keyword = '%' . trim($value) . '%';
         }
@@ -798,7 +828,7 @@ class Datatables
      *
      * @return string
      */
-    public function wildcardLikeString($str, $lowercase = true)
+    public function formatWildcard($str, $lowercase = true)
     {
         if ($lowercase) {
             $str = lowercase($str);
@@ -836,35 +866,35 @@ class Datatables
             $connection = $query->getConnection()->getName();
         }
 
-        // if its a normal query ( no union ) replace the slect with static text to improve performance
-        $myQuery = clone $query;
-        if (!preg_match('/UNION/i', $myQuery->toSql())) {
-            $myQuery->select(DB::raw("'1' as row"));
+        // if its a normal query ( no union ) replace the select with static text to improve performance
+        $countQuery = clone $query;
+        if (!preg_match('/UNION/i', $countQuery->toSql())) {
+            $countQuery->select(DB::raw("'1' as row"));
 
             // if query has "having" clause add select columns
-            if ($myQuery->havings) {
-                foreach ($myQuery->havings as $having) {
+            if ($countQuery->havings) {
+                foreach ($countQuery->havings as $having) {
                     if (isset($having['column'])) {
-                        $myQuery->addSelect($having['column']);
+                        $countQuery->addSelect($having['column']);
                     } else {
                         // search filter_columns for query string to get column name from an array key
                         $found = false;
-                        foreach ($this->filter_columns as $column => $val) {
-                            if ($val['parameters'][0] == $having['sql']) {
+                        foreach ($this->filter_columns as $column => $filter) {
+                            if ($filter['parameters'][0] == $having['sql']) {
                                 $found = $column;
                                 break;
                             }
                         }
                         // then correct it if it's an alias and add to columns
                         if ($found !== false) {
-                            foreach ($this->columns as $val) {
-                                $arr = explode(' as ', $val);
+                            foreach ($this->columns as $col) {
+                                $arr = preg_split('/ as /i', $col);
                                 if (isset($arr[1]) && $arr[1] == $found) {
                                     $found = $arr[0];
                                     break;
                                 }
                             }
-                            $myQuery->addSelect($found);
+                            $countQuery->addSelect($found);
                         }
                     }
                 }
@@ -872,13 +902,15 @@ class Datatables
         }
 
         $this->$count = DB::connection($connection)
-            ->table(DB::raw('(' . $myQuery->toSql() . ') AS count_row_table'))
-            ->setBindings($myQuery->getBindings())->count();
+            ->table(DB::raw('(' . $countQuery->toSql() . ') AS count_row_table'))
+            ->setBindings($countQuery->getBindings())->count();
 
     }
 
     /**
      * Returns column name from <table>.<column>
+     *
+     * For processing select statement columns like $query->column data
      *
      * @param string $str
      *
@@ -915,7 +947,7 @@ class Datatables
                 "draw"            => intval($this->input['draw']),
                 "recordsTotal"    => $this->count_all,
                 "recordsFiltered" => $this->display_all,
-                "data"            => $this->result_array_r,
+                "data"            => $this->result_array_return,
             );
 
         } else {
@@ -926,7 +958,7 @@ class Datatables
                 "sEcho"                => intval($this->input['draw']),
                 "iTotalRecords"        => $this->count_all,
                 "iTotalDisplayRecords" => $this->display_all,
-                "aaData"               => $this->result_array_r,
+                "aaData"               => $this->result_array_return,
                 "sColumns"             => $sColumns
             );
 
