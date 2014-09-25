@@ -169,4 +169,80 @@ return Datatables::of($todo)
     ->make();
 ```
 
+**Example 6: Advanced usage of dataFullSupport**
+
+To better utilize dataTables mData (1.9), now columns.data (1.10) feature you may enable dataFullSupport by either setting it to true in the config file, or passing true to the second initialization argument `Datatables::of($query, true)`
+
+Creating a table with a searchable and sortable joined table:
+```javascript
+//html
+<table id="user-list"></table>
+//script.js
+$("#users-list").dataTable({
+        "processing": true,
+        "serverSide": true,
+        "ajax": "/api/user/datatables",
+        "order": [[1,'desc']],
+		"columnDefs": [ { //this prevents errors if the data is null
+			"targets": "_all",
+			"defaultContent": ""
+		} ],
+        "columns": [
+            //title will auto-generate th columns
+            { "data" : "id",               "title" : "Id", "orderable": true, "searchable": false },
+            { "data" : "profile.last_name","title" : "Name", "orderable": true, "searchable": true },
+            { "data" : "username",         "title" : "Username", "orderable": true, "searchable": true },
+            { "data" : "email",            "title" : "Email", "orderable": true, "searchable": true },
+            { "data" : "created_date",     "title" : "Created", "orderable": true, "searchable": true },
+        ]
+    });
+```
+
+```php
+$users = Models\User::select()->ModelJoin('profile');
+        return $dataTables = Datatables::of($users)
+            ->filter_column('profile.last_name','where',\DB::raw('CONCAT(profile.last_name,\' \',profile.first_name)'),'LIKE','$1')
+            ->filter_column('created_at','where','users.created_at','LIKE','$1')
+            //for the blade template only the array data results is provided, it is `extracted` into the template
+            ->edit_column('profile.last_name', '{{ $profile["first_name"]." ".$profile["last_name"] }}')
+            ->edit_column('created_at', function($result_obj) {
+                //in a callback, the Eloquent object is returned so carbon may be used
+                return $result_obj->created_at->format('d/m/Y - h:ia');
+            })
+            ->add_column('manage', '<a href="/user/edit/{{$id}}" >Edit</a>', 3)
+            ->remove_column('profile.photo_id')
+            ->set_index_column('row-{{ $id }}')
+            ->make();
+```
+```php
+//helper scope method in base Model class
+    public function scopeModelJoin($query, $relation_name, $operator = '=', $type = 'left', $where = false) {
+        $relation = $this->$relation_name();
+        $table = $relation->getRelated()->getTable();
+        $one = $relation->getQualifiedParentKeyName();
+        $two = $relation->getForeignKey();
+
+        if (empty($query->columns)) {
+            $query->select($this->getTable().".*");
+        }
+
+        //$join_alias = $table;
+        $prefix = $query->getQuery()->getGrammar()->getTablePrefix();
+        $join_alias = $relation_name;
+        foreach (\Schema::getColumnListing($table) as $related_column) {
+            $query->addSelect(\DB::raw("`$prefix$join_alias`.`$related_column` AS `$join_alias.$related_column`"));
+        }
+        $two = str_replace($table . ".", $join_alias . ".", $two);
+        return $query->join("$table AS $prefix$relation_name", $one, $operator, $two, $type, $where); //->with($relation_name);
+    }
+```
+
+**Notes on columns.data:**
+- When using the columns.data option the order the data is returned in doesn't matter.
+- You may return extra rows that you use in some tables, and ones you don't without needing to worry about ignoring them.
+- When the data is returned within enbeded arrays, datatables lets you access it using dot notation.
+  This allows the columns.data element to address items in your table.  The values of the data items are expected to match the columns (or aliases) of the table.  For example, if you sort by "profile.last_name" it will use that to sort by the last_name column in the "profiles" table, so make sure that table is joined so the reference exists.
+- If you don't do a direct join you can't sort or search those columns so make sure to set those options to false in the columns array
+- If you eager load the data via Eloquent, you will still get those items back and they may be edit via edit_column just the same without needing to alias the names.
+
 **License:** Licensed under the MIT License
