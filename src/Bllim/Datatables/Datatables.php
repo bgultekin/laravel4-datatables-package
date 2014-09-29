@@ -971,6 +971,9 @@ class Datatables
             }
         }
 
+        // Clear the orders, since they are not relevant for count
+        $myQuery->orders = null;
+
         $this->$count = DB::connection($connection)
             ->table(DB::raw('(' . $countQuery->toSql() . ') AS count_row_table'))
             ->setBindings($countQuery->getBindings())->count();
