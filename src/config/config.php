@@ -7,6 +7,6 @@ return array(
 		'use_wildcards' => false,
 	),
 
-    'dataFullSupport' => true,
+    'dataFullSupport' => false,
 
 );
