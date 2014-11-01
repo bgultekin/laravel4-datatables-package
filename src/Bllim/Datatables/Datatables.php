@@ -357,9 +357,13 @@ class Datatables
         $this->query = $query;
         $this->query_type = $query instanceof \Illuminate\Database\Query\Builder ? 'fluent' : 'eloquent';
         if ($this->dataFullSupport) {
-            $this->columns = array_map(function ($column) {
-                return trim(DB::connection()->getPdo()->quote($column['data']), "'");
-            }, $this->input['columns']);
+            if ($this->query_type == 'eloquent') {
+                $this->columns = array_map(function ($column) {
+                    return trim(DB::connection()->getPdo()->quote($column['data']), "'");
+                }, $this->input['columns']);
+            } else {
+                $this->columns = ($this->query->columns ?: array());
+            }
         } else {
             $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns ?: array()) : ($this->query->columns ?: array());
         }
