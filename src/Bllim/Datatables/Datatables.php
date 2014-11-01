@@ -760,7 +760,7 @@ class Datatables
 
         // column search
         for ($i = 0, $c = count($this->input['columns']); $i < $c; $i++) {
-            if (isset($column_aliases[$i]) && $this->input['columns'][$i]['orderable'] == "true" && $this->input['columns'][$i]['search']['value'] != '') {
+            if (isset($column_aliases[$i]) && $this->input['columns'][$i]['searchable'] == "true" && $this->input['columns'][$i]['search']['value'] != '') {
                 // if filter column exists for this columns then use user defined method
                 if (isset($this->filter_columns[$column_aliases[$i]])) {
 
