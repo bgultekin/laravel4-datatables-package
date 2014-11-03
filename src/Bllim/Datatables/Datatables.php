@@ -608,7 +608,7 @@ class Datatables
      */
     protected function paging()
     {
-        if (!is_null($this->input['start']) && !is_null($this->input['length'])) {
+        if (!is_null($this->input['start']) && !is_null($this->input['length']) && $this->input['length'] != -1) {
             $this->query->skip($this->input['start'])->take((int)$this->input['length'] > 0 ? $this->input['length'] : 10);
         }
     }
