@@ -83,10 +83,14 @@ class Datatables
         if (isset($input['draw'])) {
             // DT version 1.10+
 
+            $input['version'] = '1.10';
+
             $formatted_input = $input;
 
         } else {
             // DT version < 1.10
+
+            $formatted_input['version'] = '1.9';
 
             $formatted_input['draw'] = Arr::get($input, 'sEcho', '');
             $formatted_input['start'] = Arr::get($input, 'iDisplayStart', 0);
@@ -1014,7 +1018,7 @@ class Datatables
      */
     protected function output($raw = false)
     {
-        if (Arr::get($this->input, 'draw', false)) {
+        if (Arr::get($this->input, 'version') == '1.10') {
 
             $output = array(
                 "draw"            => intval($this->input['draw']),
