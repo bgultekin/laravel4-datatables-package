@@ -687,7 +687,7 @@ class Datatables
             $this->query->where(function ($query) use (&$that, $column_aliases, $column_names) {
 
                 for ($i = 0, $c = count($that->input['columns']); $i < $c; $i++) {
-                    if (isset($column_aliases[$i]) && $that->input['columns'][$i]['searchable'] == "true") {
+                    if (isset($column_aliases[$i]) && $that->input['columns'][$i]['searchable'] == "true" && $that->input['columns'][$i]['data'] !== '') {
 
                         // if filter column exists for this columns then use user defined method
                         if (isset($that->filter_columns[$column_aliases[$i]])) {
