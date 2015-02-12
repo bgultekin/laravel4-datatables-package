@@ -629,7 +629,7 @@ class Datatables
 
             for ($i = 0, $c = count($this->input['order']); $i < $c; $i++) {
                 $order_col = (int)$this->input['order'][$i]['column'];
-                if (isset($columns[$order_col])) {
+                if (isset($columns[$order_col]) && $columns[$order_col] !== '') {
                     if ($this->input['columns'][$order_col]['orderable'] == "true") {
                         $this->query->orderBy($columns[$order_col], $this->input['order'][$i]['dir']);
                     }
@@ -691,7 +691,7 @@ class Datatables
             $this->query->where(function ($query) use (&$that, $column_aliases, $column_names) {
 
                 for ($i = 0, $c = count($that->input['columns']); $i < $c; $i++) {
-                    if (isset($column_aliases[$i]) && $that->input['columns'][$i]['searchable'] == "true") {
+                    if (isset($column_aliases[$i]) && $that->input['columns'][$i]['searchable'] == "true" && $that->input['columns'][$i]['data'] !== '') {
 
                         // if filter column exists for this columns then use user defined method
                         if (isset($that->filter_columns[$column_aliases[$i]])) {
@@ -760,7 +760,7 @@ class Datatables
 
         // column search
         for ($i = 0, $c = count($this->input['columns']); $i < $c; $i++) {
-            if (isset($column_aliases[$i]) && $this->input['columns'][$i]['orderable'] == "true" && $this->input['columns'][$i]['search']['value'] != '') {
+            if (isset($column_aliases[$i]) && $this->input['columns'][$i]['orderable'] == "true" && $this->input['columns'][$i]['search']['value'] != '' && $this->input['columns'][$i]['data'] !== '') {
                 // if filter column exists for this columns then use user defined method
                 if (isset($this->filter_columns[$column_aliases[$i]])) {
 
