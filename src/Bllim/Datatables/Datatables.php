@@ -361,9 +361,13 @@ class Datatables
         $this->query = $query;
         $this->query_type = $query instanceof \Illuminate\Database\Query\Builder ? 'fluent' : 'eloquent';
         if ($this->dataFullSupport) {
-            $this->columns = array_map(function ($column) {
-                return trim(DB::connection()->getPdo()->quote($column['data']), "'");
-            }, $this->input['columns']);
+            if ($this->query_type == 'eloquent') {
+                $this->columns = array_map(function ($column) {
+                    return trim(DB::connection()->getPdo()->quote($column['data']), "'");
+                }, $this->input['columns']);
+            } else {
+                $this->columns = ($this->query->columns ?: array());
+            }
         } else {
             $this->columns = $this->query_type == 'eloquent' ? ($this->query->getQuery()->columns ?: array()) : ($this->query->columns ?: array());
         }
@@ -760,7 +764,7 @@ class Datatables
 
         // column search
         for ($i = 0, $c = count($this->input['columns']); $i < $c; $i++) {
-            if (isset($column_aliases[$i]) && $this->input['columns'][$i]['orderable'] == "true" && $this->input['columns'][$i]['search']['value'] != '') {
+            if (isset($column_aliases[$i]) && $this->input['columns'][$i]['searchable'] == "true" && $this->input['columns'][$i]['search']['value'] != '') {
                 // if filter column exists for this columns then use user defined method
                 if (isset($this->filter_columns[$column_aliases[$i]])) {
 
