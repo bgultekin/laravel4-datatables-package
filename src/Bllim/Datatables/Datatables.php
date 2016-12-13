@@ -617,6 +617,10 @@ class Datatables
     protected function paging()
     {
         if (!is_null($this->input['start']) && !is_null($this->input['length']) && $this->input['length'] != -1) {
+            //always comeback to the first page when start is higher than total records             
+            if(($this->count('count_all'))<($this->input['start'])){
+                     $this->input['start']=0;
+            }
             $this->query->skip($this->input['start'])->take((int)$this->input['length'] > 0 ? $this->input['length'] : 10);
         }
     }
