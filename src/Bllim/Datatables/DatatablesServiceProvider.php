@@ -28,8 +28,7 @@ class DatatablesServiceProvider extends ServiceProvider {
      */
     public function register()
     {
-        $this->app['datatables'] = $this->app->share(function($app)
-        {
+        $this->app->singleton('datatables', function ($app) {
             return new Datatables;
         });
     }
